@@ -101,7 +101,7 @@
         <h2>Previous recordings</h2>
         <ul id="recordings">
           {% for r in recordings %}
-            <li>{{ r.file }} {% if r.started %}(started {{ r.started }}, {% endif %}stopped {{ r.stopped }})</li>
+            <li>{{ r.folder }} {% if r.started %}(started {{ r.started }}, {% endif %}stopped {{ r.stopped }}, frames {{ r.frames }})</li>
           {% endfor %}
         </ul>
       </section>
@@ -207,7 +207,7 @@
             recordingsData.recordings.forEach(r => {
               const li = document.createElement('li');
               const started = r.started ? `started ${r.started}, ` : '';
-              li.textContent = `${r.file} (${started}stopped ${r.stopped})`;
+              li.textContent = `${r.folder} (${started}stopped ${r.stopped}, frames ${r.frames})`;
               list.appendChild(li);
             });
           }else{
