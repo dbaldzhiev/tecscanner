@@ -52,6 +52,7 @@ class RecordingManager:
         self.usb_mount: Optional[Path] = None
         self.output_dir: Optional[Path] = None
         self.log_file: Optional[Path] = None
+        self.archive_file: Optional[Path] = None
         self._process: Optional[subprocess.Popen] = None
         self.current_file: Optional[Path] = None
         self.current_started: Optional[datetime] = None
@@ -60,6 +61,9 @@ class RecordingManager:
         self._last_size = 0
         self._last_size_time: Optional[datetime] = None
         self._lock = threading.Lock()
+        self.max_log_entries = int(os.getenv("RECORDINGS_LOG_LIMIT", "100"))
+        archive_env = os.getenv("RECORDINGS_LOG_ARCHIVE", "").lower()
+        self.archive_enabled = archive_env in ("1", "true", "yes")
         # Cache LiDAR detection result and refresh periodically
         self._lidar_detected = self._probe_lidar()
         self._probe_interval = float(os.getenv("LIDAR_PROBE_INTERVAL", "5"))
@@ -93,11 +97,13 @@ class RecordingManager:
                 self.output_dir = mount / "recordings"
                 self.output_dir.mkdir(parents=True, exist_ok=True)
                 self.log_file = self.output_dir / "recordings.json"
+                self.archive_file = self.output_dir / "recordings_archive.json"
                 if not self.log_file.exists():
                     self._write_log([])
             else:
                 self.output_dir = None
                 self.log_file = None
+                self.archive_file = None
         return self.output_dir is not None
 
     def _load_log(self):
@@ -122,7 +128,29 @@ class RecordingManager:
             return
         data = self._load_log()
         data.append(entry)
+        overflow = []
+        if self.max_log_entries and len(data) > self.max_log_entries:
+            overflow = data[:-self.max_log_entries]
+            data = data[-self.max_log_entries:]
+        if overflow and self.archive_enabled:
+            self._archive_log(overflow)
         self._write_log(data)
+
+    def _archive_log(self, entries):
+        if not self.archive_file or not entries:
+            return
+        try:
+            existing = (
+                json.loads(self.archive_file.read_text())
+                if self.archive_file.exists()
+                else []
+            )
+        except json.JSONDecodeError:
+            existing = []
+        existing.extend(entries)
+        tmp_path = self.archive_file.with_name(self.archive_file.name + ".tmp")
+        tmp_path.write_text(json.dumps(existing, indent=2))
+        os.replace(tmp_path, self.archive_file)
 
     def _probe_lidar(self) -> bool:
         """Invoke the recorder in detection mode to check for a connected LiDAR."""
