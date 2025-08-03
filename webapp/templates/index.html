@@ -140,7 +140,9 @@
       }
 
       // Periodically refresh status to provide live updates
-      setInterval(updateStatusAndRecordings, 2000);
+      // Poll less frequently to reduce server load; a push-based approach
+      // (e.g. WebSockets) could be used in the future.
+      setInterval(updateStatusAndRecordings, 5000);
       updateStatusAndRecordings();
     </script>
   </body>
