@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Mandeye MID360 Controller</title>
+  </head>
+  <body>
+    <h1>MID360 Controller</h1>
+    <p>Status: <span id="status">{{ 'recording' if status.recording else 'idle' }}</span></p>
+    <button onclick="startRec()">Start</button>
+    <button onclick="stopRec()">Stop</button>
+    <h2>Previous recordings</h2>
+    <ul id="recordings">
+      {% for r in recordings %}
+        <li>{{ r.file }} (stopped {{ r.stopped }})</li>
+      {% endfor %}
+    </ul>
+    <script>
+      async function startRec(){
+        await fetch('/start',{method:'POST'});
+        location.reload();
+      }
+      async function stopRec(){
+        await fetch('/stop',{method:'POST'});
+        location.reload();
+      }
+    </script>
+  </body>
+</html>
