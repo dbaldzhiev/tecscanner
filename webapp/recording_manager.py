@@ -48,6 +48,8 @@ class RecordingManager:
         self.current_started: Optional[datetime] = None
         # Allow overriding the command used to invoke the recorder.
         self.record_cmd = os.getenv("LIVOX_RECORD_CMD", "save_laz")
+        self._last_size = 0
+        self._last_size_time: Optional[datetime] = None
         self._ensure_storage()
 
     # ---- internal helpers -------------------------------------------------
@@ -105,6 +107,19 @@ class RecordingManager:
         data.append(entry)
         self._write_log(data)
 
+    def _probe_lidar(self) -> bool:
+        """Invoke the recorder in detection mode to check for a connected LiDAR."""
+        try:
+            res = subprocess.run(
+                [self.record_cmd, "--check"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=5,
+            )
+            return res.returncode == 0
+        except (OSError, subprocess.SubprocessError):
+            return False
+
     # ---- public API -------------------------------------------------------
     def start_recording(self) -> tuple[bool, Optional[str]]:
         """Start a Livox recording.
@@ -124,6 +139,8 @@ class RecordingManager:
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         self.current_file = self.output_dir / f"recording_{timestamp}.laz"
         self.current_started = datetime.utcnow()
+        self._last_size = 0
+        self._last_size_time = None
         cmd = [self.record_cmd, str(self.current_file)]
         try:
             self._process = subprocess.Popen(cmd)
@@ -155,6 +172,8 @@ class RecordingManager:
         self._process = None
         self.current_file = None
         self.current_started = None
+        self._last_size = 0
+        self._last_size_time = None
         return True
 
     def status(self):
@@ -163,11 +182,27 @@ class RecordingManager:
             self._process = None
             self.current_file = None
             self.current_started = None
+        lidar_detected = self._probe_lidar()
+        lidar_streaming = False
+        if self._process and self.current_file:
+            try:
+                size = self.current_file.stat().st_size
+                now = datetime.utcnow()
+                if size != self._last_size:
+                    self._last_size = size
+                    self._last_size_time = now
+                    lidar_streaming = True
+                elif self._last_size_time and (now - self._last_size_time).total_seconds() < 2:
+                    lidar_streaming = True
+            except OSError:
+                pass
         return {
             "recording": self._process is not None,
             "current_file": self.current_file.name if self.current_file else None,
             "started": self.current_started.isoformat() if self.current_started else None,
             "storage_present": storage,
+            "lidar_detected": lidar_detected,
+            "lidar_streaming": lidar_streaming,
         }
 
     def list_recordings(self):

@@ -56,9 +56,13 @@
           document.getElementById('started').textContent = statusData.started || 'n/a';
           if(!statusData.storage_present){
             showMessage(false, 'No external USB drive detected');
+          }else if(!statusData.lidar_detected){
+            showMessage(false, 'No LiDAR detected');
+          }else if(statusData.recording && !statusData.lidar_streaming){
+            showMessage(false, 'No LiDAR data received');
           }else{
             const msg = document.getElementById('messages');
-            if(msg.textContent === 'No external USB drive detected'){
+            if(['No external USB drive detected','No LiDAR detected','No LiDAR data received'].includes(msg.textContent)){
               msg.textContent = '';
             }
           }
