@@ -20,6 +20,8 @@ def start_recording():
     if error == 'already_active':
         # A recording is already running
         return {'status': 'already recording'}, 409
+    if error == 'no_lidar':
+        return {'status': 'no lidar detected'}, 400
     if error == 'spawn_failed':
         # The external recorder process could not be started
         return {'status': 'failed to start recorder'}, 500
