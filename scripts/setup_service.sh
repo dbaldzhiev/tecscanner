@@ -19,9 +19,9 @@ After=network.target
 [Service]
 Type=simple
 User=${USER_NAME}
-WorkingDirectory=${PROJECT_ROOT}
+WorkingDirectory="${PROJECT_ROOT}"
 Environment=FLASK_APP=webapp
-ExecStart=${PYTHON_BIN} -m flask run --host=0.0.0.0 --port=5000
+ExecStart="${PYTHON_BIN}" -m flask run --host=0.0.0.0 --port=5000
 Restart=on-failure
 
 [Install]
