@@ -131,11 +131,18 @@ class RecordingManager:
         and ``"spawn_failed"`` when the recorder process cannot be created.
         """
 
+        if self._process is not None:
+            # Check if the previous process has exited
+            if self._process.poll() is not None:
+                self._process = None
+                self.current_file = None
+                self.current_started = None
+            else:
+                # A recording is already running
+                return False, "already_active"
+
         if not self._ensure_storage():
             return False, "no_storage"
-        if self._process is not None:
-            # A recording is already running
-            return False, "already_active"
         if not self._probe_lidar():
             return False, "no_lidar"
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
