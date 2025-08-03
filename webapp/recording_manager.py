@@ -40,6 +40,7 @@ class RecordingManager:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self._process: Optional[subprocess.Popen] = None
         self.current_file: Optional[Path] = None
+        self.current_started: Optional[datetime] = None
         self.log_file = self.output_dir / "recordings.json"
         if not self.log_file.exists():
             self._write_log([])
@@ -81,12 +82,14 @@ class RecordingManager:
             return False, "already_active"
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         self.current_file = self.output_dir / f"recording_{timestamp}.laz"
+        self.current_started = datetime.utcnow()
         cmd = [self.record_cmd, str(self.current_file)]
         try:
             self._process = subprocess.Popen(cmd)
         except OSError:
             # Failed to start external recorder
             self.current_file = None
+            self.current_started = None
             return False, "spawn_failed"
         return True, None
 
@@ -104,20 +107,24 @@ class RecordingManager:
             self._process.wait()
         entry = {
             "file": self.current_file.name,
+            "started": self.current_started.isoformat() if self.current_started else None,
             "stopped": datetime.utcnow().isoformat()
         }
         self._save_log(entry)
         self._process = None
         self.current_file = None
+        self.current_started = None
         return True
 
     def status(self):
         if self._process is not None and self._process.poll() is not None:
             self._process = None
             self.current_file = None
+            self.current_started = None
         return {
             "recording": self._process is not None,
             "current_file": self.current_file.name if self.current_file else None,
+            "started": self.current_started.isoformat() if self.current_started else None,
         }
 
     def list_recordings(self):
