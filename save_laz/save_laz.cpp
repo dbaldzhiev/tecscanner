@@ -67,11 +67,28 @@ int main(int argc, char** argv) {
     }
     signal(SIGINT, signalHandler);
     SetLivoxLidarPointCloudCallBack(PointCloudCallback, nullptr);
+    struct LaszipWriterGuard {
+        laszip_POINTER ptr;
+        bool opened;
+        explicit LaszipWriterGuard(laszip_POINTER p) : ptr(p), opened(false) {}
+        ~LaszipWriterGuard() {
+            if (ptr) {
+                if (opened) {
+                    laszip_close_writer(ptr);
+                }
+                laszip_destroy(ptr);
+            }
+        }
+    };
 
-    if (laszip_create(&writer)) {
+    laszip_POINTER tmp_writer = nullptr;
+    if (laszip_create(&tmp_writer)) {
         std::cerr << "Failed to create laszip writer" << std::endl;
+        LivoxLidarSdkUninit();
         return 1;
     }
+    writer = tmp_writer;
+    LaszipWriterGuard writer_guard(writer);
     laszip_header* header = nullptr;
     laszip_get_header_pointer(writer, &header);
     header->file_source_ID = 4711;
@@ -84,16 +101,16 @@ int main(int argc, char** argv) {
     header->z_scale_factor = 0.0001;
     if (laszip_open_writer(writer, output.c_str(), 1)) {
         std::cerr << "Failed to open LAZ writer" << std::endl;
+        LivoxLidarSdkUninit();
         return 1;
     }
+    writer_guard.opened = true;
     laszip_get_point_pointer(writer, &laz_point);
 
     while (running) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    laszip_close_writer(writer);
-    laszip_destroy(writer);
     LivoxLidarSdkUninit();
     return 0;
 }
