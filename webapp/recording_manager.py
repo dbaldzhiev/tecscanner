@@ -50,6 +50,7 @@ class RecordingManager:
         self.record_cmd = os.getenv("LIVOX_RECORD_CMD", "save_laz")
         self._last_size = 0
         self._last_size_time: Optional[datetime] = None
+        self.recorder_failed = False
         self._ensure_storage()
 
     # ---- internal helpers -------------------------------------------------
@@ -143,6 +144,7 @@ class RecordingManager:
         self.current_started = datetime.utcnow()
         self._last_size = 0
         self._last_size_time = None
+        self.recorder_failed = False
         cmd = [self.record_cmd, str(self.current_file)]
         try:
             self._process = subprocess.Popen(cmd)
@@ -180,10 +182,14 @@ class RecordingManager:
 
     def status(self):
         storage = self._ensure_storage()
-        if self._process is not None and self._process.poll() is not None:
-            self._process = None
-            self.current_file = None
-            self.current_started = None
+        if self._process is not None:
+            rc = self._process.poll()
+            if rc is not None:
+                if rc != 0:
+                    self.recorder_failed = True
+                self._process = None
+                self.current_file = None
+                self.current_started = None
         lidar_detected = self._probe_lidar()
         lidar_streaming = False
         if self._process and self.current_file:
@@ -205,6 +211,7 @@ class RecordingManager:
             "storage_present": storage,
             "lidar_detected": lidar_detected,
             "lidar_streaming": lidar_streaming,
+            "recorder_failed": self.recorder_failed,
         }
 
     def list_recordings(self):

@@ -67,7 +67,9 @@
             streamEl.textContent = statusData.lidar_detected ? 'idle' : 'n/a';
             streamEl.style.color = statusData.lidar_detected ? 'black' : 'red';
           }
-          if(!statusData.storage_present){
+          if(statusData.recorder_failed){
+            showMessage(false, 'Recording process failed');
+          }else if(!statusData.storage_present){
             showMessage(false, 'No external USB drive detected');
           }else if(!statusData.lidar_detected){
             showMessage(false, 'No LiDAR detected');
@@ -75,7 +77,7 @@
             showMessage(false, 'No LiDAR data received');
           }else{
             const msg = document.getElementById('messages');
-            if(['No external USB drive detected','No LiDAR detected','No LiDAR data received'].includes(msg.textContent)){
+            if(['Recording process failed','No external USB drive detected','No LiDAR detected','No LiDAR data received'].includes(msg.textContent)){
               msg.textContent = '';
             }
           }
