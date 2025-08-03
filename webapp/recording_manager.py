@@ -80,6 +80,7 @@ class RecordingManager:
         # Cache LiDAR detection result and refresh periodically
         self._lidar_detected = self._probe_lidar()
         self._probe_interval = float(os.getenv("LIDAR_PROBE_INTERVAL", "5"))
+        self._detector_stop = threading.Event()
         self._detector_thread = threading.Thread(
             target=self._detection_loop, daemon=True
         )
@@ -198,11 +199,12 @@ class RecordingManager:
 
     def _detection_loop(self) -> None:
         """Background thread to refresh cached LiDAR detection results."""
-        while True:
+        while not self._detector_stop.is_set():
             detected = self._probe_lidar()
             with self._lock:
                 self._lidar_detected = detected
-            time.sleep(self._probe_interval)
+            # Allow early exit during the wait period
+            self._detector_stop.wait(self._probe_interval)
 
     def _save_frame(self, path: Path) -> bool:
         """Invoke the recorder to capture a single frame to ``path``."""
@@ -369,3 +371,21 @@ class RecordingManager:
     def list_recordings(self):
         self._ensure_storage()
         return self._load_log()
+
+    def close(self) -> None:
+        """Shut down background threads and clean up resources."""
+        # Stop an active recording if one is running
+        try:
+            self.stop_recording()
+        except Exception:
+            pass
+        if self._detector_thread and self._detector_thread.is_alive():
+            self._detector_stop.set()
+            self._detector_thread.join()
+            self._detector_thread = None
+
+    def __del__(self):
+        try:
+            self.close()
+        except Exception:
+            pass
