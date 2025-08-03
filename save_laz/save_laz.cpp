@@ -36,7 +36,7 @@ void PointCloudCallback(uint32_t, const uint8_t dev_type,
         laz_point->gps_time = static_cast<double>(data->timestamp) * 1e-9;
         laz_point->user_data = pts[i].line_id;
         laz_point->classification = pts[i].tag;
-        laz_point->user_data = pts[i].laser_id;
+        laz_point->point_source_id = pts[i].laser_id;
         coords[0] = 0.001 * pts[i].x;
         coords[1] = 0.001 * pts[i].y;
         coords[2] = 0.001 * pts[i].z;
