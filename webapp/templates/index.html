@@ -3,6 +3,12 @@
   <head>
     <meta charset="utf-8">
     <title>Remote Mandeye Controller for HDMapping</title>
+    <style>
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    </style>
   </head>
   <body>
     <h1>Remote Mandeye Controller for HDMapping</h1>
@@ -13,8 +19,8 @@
     <p>Elapsed: <span id="elapsed">0s</span></p>
     <p>LiDAR connection: <span id="lidar_status">unknown</span></p>
     <p>LiDAR stream: <span id="stream_status">n/a</span></p>
-    <button onclick="startRec()">Start</button>
-    <button onclick="stopRec()">Stop</button>
+    <button id="start_btn" onclick="startRec()">Start</button>
+    <button id="stop_btn" onclick="stopRec()">Stop</button>
     <h2>Previous recordings</h2>
     <ul id="recordings">
         {% for r in recordings %}
@@ -57,6 +63,10 @@
             document.getElementById('status').textContent = statusData.recording ? 'recording' : 'idle';
             document.getElementById('current_file').textContent = statusData.current_file || 'n/a';
             document.getElementById('started').textContent = statusData.started || 'n/a';
+            const startBtn = document.getElementById('start_btn');
+            const stopBtn = document.getElementById('stop_btn');
+            startBtn.disabled = statusData.recording;
+            stopBtn.disabled = !statusData.recording;
             const lidarEl = document.getElementById('lidar_status');
             lidarEl.textContent = statusData.lidar_detected ? 'connected' : 'disconnected';
             lidarEl.style.color = statusData.lidar_detected ? 'green' : 'red';
