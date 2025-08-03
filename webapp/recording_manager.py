@@ -211,8 +211,29 @@ class RecordingManager:
 
             if not self._ensure_storage():
                 return False, "no_storage"
-            if not self._probe_lidar():
+            cached_detected = self._lidar_detected
+
+        # Probe for the LiDAR outside the lock to avoid blocking other calls
+        if not cached_detected:
+            cached_detected = self._probe_lidar()
+
+        with self._lock:
+            self._lidar_detected = cached_detected
+            if not cached_detected:
                 return False, "no_lidar"
+
+            # Re-check recording state in case it changed while the lock was released
+            if self._process is not None:
+                if self._process.poll() is not None:
+                    self._process = None
+                    self.current_file = None
+                    self.current_started = None
+                else:
+                    return False, "already_active"
+
+            if not self._ensure_storage():
+                return False, "no_storage"
+
             timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
             self.current_file = self.output_dir / f"recording_{timestamp}.laz"
             self.current_started = datetime.utcnow()
