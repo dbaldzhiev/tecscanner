@@ -14,9 +14,11 @@ interaction happens through the browser.
 - View status and a history of recorded files.
 
 The example implementation stores recordings in the `recordings/`
-directory and logs metadata in `recordings/recordings.json`. Replace the
-mocked sections in `recording_manager.py` with calls to the actual Livox
-SDK for hardware integration.
+directory and logs metadata in `recordings/recordings.json`. The
+`RecordingManager` now launches the Livox SDK recorder (similar to the
+`save_laz` utility from
+[`mandeye_controller`](https://github.com/JanuszBedkowski/mandeye_controller))
+to capture real MID360 data.
 
 ## Installation
 1. Clone the repository:
@@ -33,9 +35,17 @@ SDK for hardware integration.
    ```bash
    pip install -r requirements.txt
    ```
+4. Install the Livox drivers and tooling:
+   - Download and build the [Livox SDK](https://github.com/Livox-SDK/Livox-SDK)
+     following the instructions in that repository.
+   - Build the `mandeye_controller` project to obtain the `save_laz` binary
+     which streams LiDAR data to `.laz` files.
+   - Ensure the resulting executable is on your `PATH` or set the
+     `LIVOX_RECORD_CMD` environment variable to its location so the web
+     application can invoke it.
 
 ## Running
-1. Start the development server:
+1. Start the Livox recorder and web server:
    ```bash
    flask --app webapp run --host=0.0.0.0
    ```
