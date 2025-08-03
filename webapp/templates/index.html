@@ -8,30 +8,37 @@
     <h1>Remote Mandeye Controller for HDMapping</h1>
     <div id="messages"></div>
     <p>Status: <span id="status">{{ 'recording' if status.recording else 'idle' }}</span></p>
+    <p>Current file: <span id="current_file">{{ status.current_file or 'n/a' }}</span></p>
+    <p>Started at: <span id="started">{{ status.started or 'n/a' }}</span></p>
+    <p>Elapsed: <span id="elapsed">0s</span></p>
     <button onclick="startRec()">Start</button>
     <button onclick="stopRec()">Stop</button>
     <h2>Previous recordings</h2>
     <ul id="recordings">
-      {% for r in recordings %}
-        <li>{{ r.file }} (stopped {{ r.stopped }})</li>
-      {% endfor %}
+        {% for r in recordings %}
+          <li>{{ r.file }} {% if r.started %}(started {{ r.started }}, {% endif %}stopped {{ r.stopped }})</li>
+        {% endfor %}
     </ul>
     <script>
       async function startRec(){
-        const res = await fetch('/start',{method:'POST'});
-        const data = await res.json();
-        showMessage(res.ok, data.status);
-        if(res.ok){
-          await updateStatusAndRecordings();
+        try{
+          const res = await fetch('/start',{method:'POST'});
+          const data = await res.json();
+          showMessage(res.ok, data.status);
+        }catch(err){
+          showMessage(false, 'failed to contact server');
         }
+        await updateStatusAndRecordings();
       }
       async function stopRec(){
-        const res = await fetch('/stop',{method:'POST'});
-        const data = await res.json();
-        showMessage(res.ok, data.status);
-        if(res.ok){
-          await updateStatusAndRecordings();
+        try{
+          const res = await fetch('/stop',{method:'POST'});
+          const data = await res.json();
+          showMessage(res.ok, data.status);
+        }catch(err){
+          showMessage(false, 'failed to contact server');
         }
+        await updateStatusAndRecordings();
       }
 
       function showMessage(success, message){
@@ -45,6 +52,14 @@
         if(statusRes.ok){
           const statusData = await statusRes.json();
           document.getElementById('status').textContent = statusData.recording ? 'recording' : 'idle';
+          document.getElementById('current_file').textContent = statusData.current_file || 'n/a';
+          document.getElementById('started').textContent = statusData.started || 'n/a';
+          if(statusData.recording && statusData.started){
+            const elapsedMs = Date.now() - Date.parse(statusData.started);
+            document.getElementById('elapsed').textContent = Math.floor(elapsedMs/1000)+'s';
+          }else{
+            document.getElementById('elapsed').textContent = '0s';
+          }
         }
 
         const recordingsRes = await fetch('/recordings');
@@ -54,11 +69,16 @@
           list.innerHTML = '';
           recordingsData.recordings.forEach(r => {
             const li = document.createElement('li');
-            li.textContent = `${r.file} (stopped ${r.stopped})`;
+            const started = r.started ? `started ${r.started}, ` : '';
+            li.textContent = `${r.file} (${started}stopped ${r.stopped})`;
             list.appendChild(li);
           });
         }
       }
+
+      // Periodically refresh status to provide live updates
+      setInterval(updateStatusAndRecordings, 2000);
+      updateStatusAndRecordings();
     </script>
   </body>
 </html>
