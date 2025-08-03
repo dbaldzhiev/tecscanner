@@ -35,21 +35,25 @@ bash scripts/install.sh
 
 Alternatively, follow the manual steps below.
 
-1. Clone the repository:
+1. Install required system packages (including the LASzip development library):
+   ```bash
+   sudo apt-get install build-essential cmake python3-dev python3-venv liblaszip-dev
+   ```
+2. Clone the repository:
    ```bash
    git clone https://github.com/<your-username>/tecscanner.git
    cd tecscanner
    ```
-2. (Optional) create and activate a virtual environment:
+3. (Optional) create and activate a virtual environment:
    ```bash
    python3 -m venv .venv
    source .venv/bin/activate
    ```
-3. Install Python dependencies:
+4. Install Python dependencies:
    ```bash
    pip install -r requirements.txt
    ```
-4. Build the Livox recording utility:
+5. Build the Livox recording utility:
    - The repository includes a minimal `save_laz` program under
      `save_laz/` which streams MID360 data directly to `.laz` files (and
      simultaneously produces `.csv` versions) using
@@ -62,7 +66,7 @@ Alternatively, follow the manual steps below.
    - Make sure the resulting `save_laz` binary is on your `PATH` or set the
      `LIVOX_RECORD_CMD` environment variable to point to it so the web
      application can invoke it.
-5. Configure the Livox MID360:
+6. Configure the Livox MID360:
    - Connect the LiDAR and host via Ethernet.
    - Assign the host interface a static IP such as `192.168.1.5`.
    - Ensure the MID360 is reachable on the same subnet (the factory default is
@@ -71,7 +75,7 @@ Alternatively, follow the manual steps below.
      ports (defaults mirror the Livox SDK samples using ports 56100–56501).
      Place this file next to the `save_laz` binary or set `LIVOX_SDK_CONFIG`
      to its location.
-6. (Optional) specify where to look for removable storage:
+7. (Optional) specify where to look for removable storage:
    - By default the application searches `/media` and `/run/media` for a mounted
      USB drive. Set the `LIVOX_MOUNT_ROOTS` environment variable to a
      colon-separated list of paths to check additional locations.

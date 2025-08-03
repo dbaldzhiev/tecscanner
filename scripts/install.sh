@@ -7,7 +7,7 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "Installing system packages..."
 sudo apt-get update
-sudo apt-get install -y build-essential cmake python3-dev python3-venv
+sudo apt-get install -y build-essential cmake python3-dev python3-venv liblaszip-dev
 
 echo "Compiling Livox-SDK2..."
 cd "$PROJECT_ROOT/3rd/Livox-SDK2"
