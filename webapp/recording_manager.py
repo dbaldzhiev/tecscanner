@@ -228,16 +228,51 @@ class RecordingManager:
                 return False
         return csv.exists()
 
+    def _finalize_recording(self, success: bool, error: Optional[str] = None) -> None:
+        """Join the worker thread, reset state and log the result."""
+        thread = self._thread
+        if thread and thread is not threading.current_thread():
+            thread.join()
+        with self._lock:
+            entry = {
+                "folder": self.current_dir.name if self.current_dir else None,
+                "frames": self.frame_counter,
+                "started": self.current_started.isoformat()
+                if self.current_started
+                else None,
+                "stopped": datetime.utcnow().isoformat(),
+            }
+            if not success:
+                entry["error"] = error or "save_failed"
+            self._save_log(entry)
+            self._thread = None
+            self._stop_event = None
+            self.current_dir = None
+            self.current_file = None
+            self.current_started = None
+            self.frame_counter = 0
+            self._last_size = 0
+            self._last_size_time = None
+
     def _record_loop(self) -> None:
         """Background loop that saves frames until stopped."""
         frame_idx = 0
+        failures = 0
+        max_failures = 3
         while self._stop_event and not self._stop_event.is_set():
             if not self.current_dir:
                 break
             path = self.current_dir / f"frame_{frame_idx:06d}.laz"
             csv_path = path.with_suffix(".csv")
             if not self._save_frame(path):
-                break
+                failures += 1
+                logger.error("Failed to save frame %s", path)
+                if failures <= max_failures:
+                    time.sleep(1)
+                    continue
+                self._finalize_recording(False, "save_failed")
+                return
+            failures = 0
             if not csv_path.exists():
                 self._convert_to_csv(path, csv_path)
             try:
@@ -311,26 +346,10 @@ class RecordingManager:
         with self._lock:
             if not self._thread or not self._thread.is_alive():
                 return False
-            self._stop_event.set()
-            thread = self._thread
-        thread.join()
-        with self._lock:
-            entry = {
-                "folder": self.current_dir.name if self.current_dir else None,
-                "frames": self.frame_counter,
-                "started": self.current_started.isoformat() if self.current_started else None,
-                "stopped": datetime.utcnow().isoformat(),
-            }
-            self._save_log(entry)
-            self._thread = None
-            self._stop_event = None
-            self.current_dir = None
-            self.current_file = None
-            self.current_started = None
-            self.frame_counter = 0
-            self._last_size = 0
-            self._last_size_time = None
-            return True
+            if self._stop_event:
+                self._stop_event.set()
+        self._finalize_recording(True)
+        return True
 
     def status(self):
         with self._lock:
