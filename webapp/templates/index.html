@@ -6,6 +6,7 @@
   </head>
   <body>
     <h1>Remote Mandeye Controller for HDMapping</h1>
+    <div id="messages"></div>
     <p>Status: <span id="status">{{ 'recording' if status.recording else 'idle' }}</span></p>
     <button onclick="startRec()">Start</button>
     <button onclick="stopRec()">Stop</button>
@@ -17,12 +18,46 @@
     </ul>
     <script>
       async function startRec(){
-        await fetch('/start',{method:'POST'});
-        location.reload();
+        const res = await fetch('/start',{method:'POST'});
+        const data = await res.json();
+        showMessage(res.ok, data.status);
+        if(res.ok){
+          await updateStatusAndRecordings();
+        }
       }
       async function stopRec(){
-        await fetch('/stop',{method:'POST'});
-        location.reload();
+        const res = await fetch('/stop',{method:'POST'});
+        const data = await res.json();
+        showMessage(res.ok, data.status);
+        if(res.ok){
+          await updateStatusAndRecordings();
+        }
+      }
+
+      function showMessage(success, message){
+        const msg = document.getElementById('messages');
+        msg.textContent = message;
+        msg.style.color = success ? 'green' : 'red';
+      }
+
+      async function updateStatusAndRecordings(){
+        const statusRes = await fetch('/status');
+        if(statusRes.ok){
+          const statusData = await statusRes.json();
+          document.getElementById('status').textContent = statusData.recording ? 'recording' : 'idle';
+        }
+
+        const recordingsRes = await fetch('/recordings');
+        if(recordingsRes.ok){
+          const recordingsData = await recordingsRes.json();
+          const list = document.getElementById('recordings');
+          list.innerHTML = '';
+          recordingsData.recordings.forEach(r => {
+            const li = document.createElement('li');
+            li.textContent = `${r.file} (stopped ${r.stopped})`;
+            list.appendChild(li);
+          });
+        }
       }
     </script>
   </body>
