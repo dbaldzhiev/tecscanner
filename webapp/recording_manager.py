@@ -25,6 +25,7 @@ from typing import Optional, List
 from datetime import datetime
 from pathlib import Path
 import logging
+import shutil
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,15 @@ class RecordingManager:
         self.current_file: Optional[Path] = None
         self.current_started: Optional[datetime] = None
         # Allow overriding the command used to invoke the recorder.
-        self.record_cmd = os.getenv("LIVOX_RECORD_CMD", "save_laz")
+        cmd = os.getenv("LIVOX_RECORD_CMD", "save_laz")
+        resolved = shutil.which(cmd)
+        if resolved:
+            self.record_cmd = resolved
+            self._recorder_available = True
+        else:
+            logger.error("Recorder command '%s' not found; recordings disabled", cmd)
+            self.record_cmd = None
+            self._recorder_available = False
         self._last_size = 0
         self._last_size_time: Optional[datetime] = None
         self._lock = threading.Lock()
@@ -154,6 +163,8 @@ class RecordingManager:
 
     def _probe_lidar(self) -> bool:
         """Invoke the recorder in detection mode to check for a connected LiDAR."""
+        if not self.record_cmd:
+            return False
         try:
             res = subprocess.run(
                 [self.record_cmd, "--check"],
@@ -180,11 +191,14 @@ class RecordingManager:
         Returns a tuple ``(started, error)`` where ``started`` indicates
         whether the external recorder process was launched and ``error`` is
         ``None`` on success or a string identifying the failure.  Possible
-        error codes are ``"already_active"`` when a recording is in progress
-        and ``"spawn_failed"`` when the recorder process cannot be created.
+        error codes are ``"already_active"`` when a recording is in progress,
+        ``"no_recorder"`` when the recorder command is missing, and
+        ``"spawn_failed"`` when the recorder process cannot be created.
         """
 
         with self._lock:
+            if not self._recorder_available:
+                return False, "no_recorder"
             if self._process is not None:
                 # Check if the previous process has exited
                 if self._process.poll() is not None:
