@@ -20,6 +20,7 @@ import os
 import signal
 import subprocess
 import threading
+import time
 from typing import Optional, List
 from datetime import datetime
 from pathlib import Path
@@ -59,6 +60,13 @@ class RecordingManager:
         self._last_size = 0
         self._last_size_time: Optional[datetime] = None
         self._lock = threading.Lock()
+        # Cache LiDAR detection result and refresh periodically
+        self._lidar_detected = self._probe_lidar()
+        self._probe_interval = float(os.getenv("LIDAR_PROBE_INTERVAL", "5"))
+        self._detector_thread = threading.Thread(
+            target=self._detection_loop, daemon=True
+        )
+        self._detector_thread.start()
         self._ensure_storage()
 
     # ---- internal helpers -------------------------------------------------
@@ -128,6 +136,14 @@ class RecordingManager:
             return res.returncode == 0
         except (OSError, subprocess.SubprocessError):
             return False
+
+    def _detection_loop(self) -> None:
+        """Background thread to refresh cached LiDAR detection results."""
+        while True:
+            detected = self._probe_lidar()
+            with self._lock:
+                self._lidar_detected = detected
+            time.sleep(self._probe_interval)
 
     # ---- public API -------------------------------------------------------
     def start_recording(self) -> tuple[bool, Optional[str]]:
@@ -202,7 +218,7 @@ class RecordingManager:
                 self._process = None
                 self.current_file = None
                 self.current_started = None
-            lidar_detected = self._probe_lidar()
+            lidar_detected = self._lidar_detected
             lidar_streaming = False
             current_size = None
             if self._process and self.current_file:
