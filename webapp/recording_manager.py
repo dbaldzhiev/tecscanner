@@ -73,6 +73,8 @@ class RecordingManager:
         self.max_log_entries = int(os.getenv("RECORDINGS_LOG_LIMIT", "100"))
         archive_env = os.getenv("RECORDINGS_LOG_ARCHIVE", "").lower()
         self.archive_enabled = archive_env in ("1", "true", "yes")
+        self._log_error = False
+        self._archive_error = False
         # Cache LiDAR detection result and refresh periodically
         self._lidar_detected = self._probe_lidar()
         self._probe_interval = float(os.getenv("LIDAR_PROBE_INTERVAL", "5"))
@@ -129,8 +131,16 @@ class RecordingManager:
         if not self.log_file:
             return
         tmp_path = self.log_file.with_name(self.log_file.name + ".tmp")
-        tmp_path.write_text(json.dumps(data, indent=2))
-        os.replace(tmp_path, self.log_file)
+        try:
+            with tmp_path.open("w") as f:
+                f.write(json.dumps(data, indent=2))
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_path, self.log_file)
+            self._log_error = False
+        except OSError as e:
+            logger.warning("Failed to write recordings log: %s", e)
+            self._log_error = True
 
     def _save_log(self, entry):
         if not self.log_file:
@@ -158,8 +168,16 @@ class RecordingManager:
             existing = []
         existing.extend(entries)
         tmp_path = self.archive_file.with_name(self.archive_file.name + ".tmp")
-        tmp_path.write_text(json.dumps(existing, indent=2))
-        os.replace(tmp_path, self.archive_file)
+        try:
+            with tmp_path.open("w") as f:
+                f.write(json.dumps(existing, indent=2))
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_path, self.archive_file)
+            self._archive_error = False
+        except OSError as e:
+            logger.warning("Failed to archive recordings log: %s", e)
+            self._archive_error = True
 
     def _probe_lidar(self) -> bool:
         """Invoke the recorder in detection mode to check for a connected LiDAR."""
@@ -305,6 +323,8 @@ class RecordingManager:
                 "storage_present": storage,
                 "lidar_detected": lidar_detected,
                 "lidar_streaming": lidar_streaming,
+                "log_error": self._log_error,
+                "archive_error": self._archive_error,
             }
 
     def list_recordings(self):
