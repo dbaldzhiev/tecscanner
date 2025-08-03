@@ -50,10 +50,6 @@ class RecordingManager:
         self.record_cmd = os.getenv("LIVOX_RECORD_CMD", "save_laz")
         self._last_size = 0
         self._last_size_time: Optional[datetime] = None
-        # Cache the results of probing for a connected LiDAR to avoid
-        # repeatedly spawning the external process in quick succession.
-        self._last_probe_time: Optional[datetime] = None
-        self._last_probe_result: Optional[bool] = None
         self._ensure_storage()
 
     # ---- internal helpers -------------------------------------------------
@@ -112,18 +108,7 @@ class RecordingManager:
         self._write_log(data)
 
     def _probe_lidar(self) -> bool:
-        """Invoke the recorder in detection mode to check for a connected LiDAR.
-
-        The result is cached for a short period to avoid repeatedly spawning
-        the external process when the status endpoint is polled rapidly.
-        """
-        now = datetime.utcnow()
-        if (
-            self._last_probe_time
-            and (now - self._last_probe_time).total_seconds() < 5
-        ):
-            return bool(self._last_probe_result)
-
+        """Invoke the recorder in detection mode to check for a connected LiDAR."""
         try:
             res = subprocess.run(
                 [self.record_cmd, "--check"],
@@ -131,13 +116,9 @@ class RecordingManager:
                 stderr=subprocess.DEVNULL,
                 timeout=5,
             )
-            result = res.returncode == 0
+            return res.returncode == 0
         except (OSError, subprocess.SubprocessError):
-            result = False
-
-        self._last_probe_time = now
-        self._last_probe_result = result
-        return result
+            return False
 
     # ---- public API -------------------------------------------------------
     def start_recording(self) -> tuple[bool, Optional[str]]:
@@ -162,12 +143,7 @@ class RecordingManager:
 
         if not self._ensure_storage():
             return False, "no_storage"
-
-        # Use the cached probe result to avoid repeatedly spawning the
-        # detection process when status checks occur immediately before this
-        # call.
-        lidar_detected = self._probe_lidar()
-        if not lidar_detected:
+        if not self._probe_lidar():
             return False, "no_lidar"
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         self.current_file = self.output_dir / f"recording_{timestamp}.laz"
@@ -215,8 +191,6 @@ class RecordingManager:
             self._process = None
             self.current_file = None
             self.current_started = None
-        # Probe the LiDAR with caching to reduce subprocess overhead when the
-        # status endpoint is polled rapidly.
         lidar_detected = self._probe_lidar()
         lidar_streaming = False
         if self._process and self.current_file:
