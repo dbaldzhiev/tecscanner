@@ -54,6 +54,14 @@
           document.getElementById('status').textContent = statusData.recording ? 'recording' : 'idle';
           document.getElementById('current_file').textContent = statusData.current_file || 'n/a';
           document.getElementById('started').textContent = statusData.started || 'n/a';
+          if(!statusData.storage_present){
+            showMessage(false, 'No external USB drive detected');
+          }else{
+            const msg = document.getElementById('messages');
+            if(msg.textContent === 'No external USB drive detected'){
+              msg.textContent = '';
+            }
+          }
           if(statusData.recording && statusData.started){
             const elapsedMs = Date.now() - Date.parse(statusData.started);
             document.getElementById('elapsed').textContent = Math.floor(elapsedMs/1000)+'s';
