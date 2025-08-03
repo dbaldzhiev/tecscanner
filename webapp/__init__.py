@@ -14,9 +14,16 @@ def index():
 
 @app.post('/start')
 def start_recording():
-    if manager.start_recording():
+    started, error = manager.start_recording()
+    if started:
         return {'status': 'recording started'}
-    return {'status': 'already recording'}, 400
+    if error == 'already_active':
+        # A recording is already running
+        return {'status': 'already recording'}, 409
+    if error == 'spawn_failed':
+        # The external recorder process could not be started
+        return {'status': 'failed to start recorder'}, 500
+    return {'status': 'unknown error'}, 500
 
 @app.post('/stop')
 def stop_recording():

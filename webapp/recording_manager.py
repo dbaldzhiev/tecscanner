@@ -50,16 +50,19 @@ class RecordingManager:
         self.log_file.write_text(json.dumps(data, indent=2))
 
     # ---- public API -------------------------------------------------------
-    def start_recording(self) -> bool:
+    def start_recording(self) -> tuple[bool, Optional[str]]:
         """Start a Livox recording.
 
-        Returns ``True`` if the recording process was successfully spawned and
-        ``False`` if a recording is already running or if launching the
-        external process fails.
+        Returns a tuple ``(started, error)`` where ``started`` indicates
+        whether the external recorder process was launched and ``error`` is
+        ``None`` on success or a string identifying the failure.  Possible
+        error codes are ``"already_active"`` when a recording is in progress
+        and ``"spawn_failed"`` when the recorder process cannot be created.
         """
 
         if self._process is not None:
-            return False
+            # A recording is already running
+            return False, "already_active"
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         self.current_file = self.output_dir / f"recording_{timestamp}.laz"
         cmd = [self.record_cmd, str(self.current_file)]
@@ -68,8 +71,8 @@ class RecordingManager:
         except OSError:
             # Failed to start external recorder
             self.current_file = None
-            return False
-        return True
+            return False, "spawn_failed"
+        return True, None
 
     def stop_recording(self) -> bool:
         """Stop the Livox recording and log the result."""
