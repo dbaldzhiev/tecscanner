@@ -12,10 +12,12 @@ interaction happens through the browser.
 - Start a new LiDAR recording.
 - Stop the current recording.
 - View status and a history of recorded files.
+- Recordings are saved to an attached USB drive and the UI warns if no drive is present.
 
-The example implementation stores recordings in the `recordings/`
-directory and logs metadata in `recordings/recordings.json`. The
-`RecordingManager` now launches the Livox SDK recorder (similar to the
+Recordings are written to a USB flash drive that is expected to be
+automounted by the operating system. Metadata is tracked in
+`recordings/recordings.json` on that drive. The
+`RecordingManager` launches the Livox SDK recorder (similar to the
 `save_laz` utility from
 [`mandeye_controller`](https://github.com/JanuszBedkowski/mandeye_controller))
 to capture real MID360 data.

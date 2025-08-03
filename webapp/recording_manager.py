@@ -19,7 +19,7 @@ import json
 import os
 import signal
 import subprocess
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from pathlib import Path
 import logging
@@ -32,23 +32,58 @@ class RecordingManager:
     The manager spawns an external recorder process (typically the
     ``save_laz`` utility from ``mandeye_controller``) and tracks the produced
     file.  The process is started when ``start_recording`` is called and is
-    stopped via ``SIGINT`` when ``stop_recording`` is requested.
+    stopped via ``SIGINT`` when ``stop_recording`` is requested.  Recordings
+    are always stored on a removable drive that is expected to be automounted
+    under ``/media`` or ``/run/media``.  If no such drive is present,
+    recording cannot start.
     """
 
-    def __init__(self, output_dir: str = "recordings"):
-        self.output_dir = Path(output_dir)
-        self.output_dir.mkdir(parents=True, exist_ok=True)
+    def __init__(self, mount_roots: Optional[List[str]] = None):
+        self.mount_roots = mount_roots or ["/media", "/run/media"]
+        self.usb_mount: Optional[Path] = None
+        self.output_dir: Optional[Path] = None
+        self.log_file: Optional[Path] = None
         self._process: Optional[subprocess.Popen] = None
         self.current_file: Optional[Path] = None
         self.current_started: Optional[datetime] = None
-        self.log_file = self.output_dir / "recordings.json"
-        if not self.log_file.exists():
-            self._write_log([])
         # Allow overriding the command used to invoke the recorder.
         self.record_cmd = os.getenv("LIVOX_RECORD_CMD", "save_laz")
+        self._ensure_storage()
 
     # ---- internal helpers -------------------------------------------------
+    def _find_usb_mount(self) -> Optional[Path]:
+        try:
+            with open("/proc/mounts") as f:
+                for line in f:
+                    parts = line.split()
+                    if len(parts) < 2:
+                        continue
+                    mount_point = parts[1]
+                    if any(mount_point.startswith(root) for root in self.mount_roots):
+                        if os.access(mount_point, os.W_OK):
+                            return Path(mount_point)
+        except OSError:
+            pass
+        return None
+
+    def _ensure_storage(self) -> bool:
+        mount = self._find_usb_mount()
+        if mount != self.usb_mount:
+            self.usb_mount = mount
+            if mount:
+                self.output_dir = mount / "recordings"
+                self.output_dir.mkdir(parents=True, exist_ok=True)
+                self.log_file = self.output_dir / "recordings.json"
+                if not self.log_file.exists():
+                    self._write_log([])
+            else:
+                self.output_dir = None
+                self.log_file = None
+        return self.output_dir is not None
+
     def _load_log(self):
+        if not self.log_file or not self.log_file.exists():
+            return []
         try:
             return json.loads(self.log_file.read_text())
         except json.JSONDecodeError:
@@ -57,11 +92,15 @@ class RecordingManager:
             return []
 
     def _write_log(self, data):
+        if not self.log_file:
+            return
         tmp_path = self.log_file.with_name(self.log_file.name + ".tmp")
         tmp_path.write_text(json.dumps(data, indent=2))
         os.replace(tmp_path, self.log_file)
 
     def _save_log(self, entry):
+        if not self.log_file:
+            return
         data = self._load_log()
         data.append(entry)
         self._write_log(data)
@@ -77,6 +116,8 @@ class RecordingManager:
         and ``"spawn_failed"`` when the recorder process cannot be created.
         """
 
+        if not self._ensure_storage():
+            return False, "no_storage"
         if self._process is not None:
             # A recording is already running
             return False, "already_active"
@@ -117,6 +158,7 @@ class RecordingManager:
         return True
 
     def status(self):
+        storage = self._ensure_storage()
         if self._process is not None and self._process.poll() is not None:
             self._process = None
             self.current_file = None
@@ -125,7 +167,9 @@ class RecordingManager:
             "recording": self._process is not None,
             "current_file": self.current_file.name if self.current_file else None,
             "started": self.current_started.isoformat() if self.current_started else None,
+            "storage_present": storage,
         }
 
     def list_recordings(self):
+        self._ensure_storage()
         return self._load_log()

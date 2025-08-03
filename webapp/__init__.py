@@ -5,8 +5,6 @@ manager = RecordingManager()
 
 app = Flask(__name__)
 
-import os
-
 @app.route('/')
 def index():
     from flask import render_template
@@ -17,6 +15,8 @@ def start_recording():
     started, error = manager.start_recording()
     if started:
         return {'status': 'recording started'}
+    if error == 'no_storage':
+        return {'status': 'no external storage'}, 400
     if error == 'already_active':
         # A recording is already running
         return {'status': 'already recording'}, 409
