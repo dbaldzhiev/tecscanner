@@ -3,16 +3,24 @@
   <head>
     <meta charset="utf-8">
     <title>Remote Mandeye Controller for HDMapping</title>
+    <style>
+      body { font-family: Arial, sans-serif; }
+      #messages { margin-bottom: 1em; }
+      .status-block { display: inline-block; margin: 0.25em; padding: 0.5em 1em; border: 1px solid #ccc; border-radius: 4px; }
+      .label-green { color: green; }
+      .label-red { color: red; }
+      .label-gray { color: gray; }
+    </style>
   </head>
   <body>
     <h1>Remote Mandeye Controller for HDMapping</h1>
     <div id="messages"></div>
-    <p>Status: <span id="status">{{ 'recording' if status.recording else 'idle' }}</span></p>
-    <p>Current file: <span id="current_file">{{ status.current_file or 'n/a' }}</span></p>
-    <p>Started at: <span id="started">{{ status.started or 'n/a' }}</span></p>
-    <p>Elapsed: <span id="elapsed">0s</span></p>
-    <p>LiDAR connection: <span id="lidar_status">unknown</span></p>
-    <p>LiDAR stream: <span id="stream_status">n/a</span></p>
+    <p class="status-block">Status: <span id="status" class="{{ 'label-green' if status.recording else 'label-gray' }}">{{ 'recording' if status.recording else 'idle' }}</span></p>
+    <p class="status-block">Current file: <span id="current_file">{{ status.current_file or 'n/a' }}</span></p>
+    <p class="status-block">Started at: <span id="started">{{ status.started or 'n/a' }}</span></p>
+    <p class="status-block">Elapsed: <span id="elapsed">0s</span></p>
+    <p class="status-block">LiDAR connection: <span id="lidar_status">unknown</span></p>
+    <p class="status-block">LiDAR stream: <span id="stream_status">n/a</span></p>
     <button onclick="startRec()">Start</button>
     <button onclick="stopRec()">Stop</button>
     <h2>Previous recordings</h2>
@@ -22,6 +30,9 @@
         {% endfor %}
     </ul>
     <script>
+      let lastElapsedSeconds = 0;
+      let elapsedInitialized = false;
+
       async function startRec(){
         try{
           const res = await fetch('/start',{method:'POST'});
@@ -53,19 +64,21 @@
         const statusRes = await fetch('/status');
         if(statusRes.ok){
           const statusData = await statusRes.json();
-          document.getElementById('status').textContent = statusData.recording ? 'recording' : 'idle';
+          const statusEl = document.getElementById('status');
+          statusEl.textContent = statusData.recording ? 'recording' : 'idle';
+          statusEl.className = statusData.recording ? 'label-green' : 'label-gray';
           document.getElementById('current_file').textContent = statusData.current_file || 'n/a';
           document.getElementById('started').textContent = statusData.started || 'n/a';
           const lidarEl = document.getElementById('lidar_status');
           lidarEl.textContent = statusData.lidar_detected ? 'connected' : 'disconnected';
-          lidarEl.style.color = statusData.lidar_detected ? 'green' : 'red';
+          lidarEl.className = statusData.lidar_detected ? 'label-green' : 'label-red';
           const streamEl = document.getElementById('stream_status');
           if(statusData.recording){
             streamEl.textContent = statusData.lidar_streaming ? 'streaming' : 'no data';
-            streamEl.style.color = statusData.lidar_streaming ? 'green' : 'red';
+            streamEl.className = statusData.lidar_streaming ? 'label-green' : 'label-red';
           }else{
             streamEl.textContent = statusData.lidar_detected ? 'idle' : 'n/a';
-            streamEl.style.color = statusData.lidar_detected ? 'black' : 'red';
+            streamEl.className = statusData.lidar_detected ? 'label-gray' : 'label-red';
           }
           if(!statusData.storage_present){
             showMessage(false, 'No external USB drive detected');
@@ -79,11 +92,23 @@
               msg.textContent = '';
             }
           }
+          const elapsedEl = document.getElementById('elapsed');
           if(statusData.recording && statusData.started){
-            const elapsedMs = Date.now() - Date.parse(statusData.started);
-            document.getElementById('elapsed').textContent = Math.floor(elapsedMs/1000)+'s';
+            const parsedStart = Date.parse(statusData.started);
+            if(!isNaN(parsedStart)){
+              const newElapsed = Math.floor((Date.now() - parsedStart)/1000);
+              if(!elapsedInitialized){
+                lastElapsedSeconds = newElapsed;
+                elapsedInitialized = true;
+              }else if(Math.abs(newElapsed - lastElapsedSeconds) <= 5){
+                lastElapsedSeconds = newElapsed;
+              }
+            }
+            elapsedEl.textContent = lastElapsedSeconds + 's';
           }else{
-            document.getElementById('elapsed').textContent = '0s';
+            elapsedInitialized = false;
+            lastElapsedSeconds = 0;
+            elapsedEl.textContent = '0s';
           }
         }
 
