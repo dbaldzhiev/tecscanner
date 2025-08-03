@@ -93,6 +93,9 @@ class RecordingManager:
         return True
 
     def status(self):
+        if self._process is not None and self._process.poll() is not None:
+            self._process = None
+            self.current_file = None
         return {
             "recording": self._process is not None,
             "current_file": self.current_file.name if self.current_file else None,
