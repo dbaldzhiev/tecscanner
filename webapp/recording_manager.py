@@ -50,6 +50,7 @@ class RecordingManager:
         self.record_cmd = os.getenv("LIVOX_RECORD_CMD", "save_laz")
         self._last_size = 0
         self._last_size_time: Optional[datetime] = None
+        self._last_returncode: Optional[int] = None
         self._ensure_storage()
 
     # ---- internal helpers -------------------------------------------------
@@ -143,6 +144,7 @@ class RecordingManager:
         self.current_started = datetime.utcnow()
         self._last_size = 0
         self._last_size_time = None
+        self._last_returncode = None
         cmd = [self.record_cmd, str(self.current_file)]
         try:
             self._process = subprocess.Popen(cmd)
@@ -165,12 +167,15 @@ class RecordingManager:
         except subprocess.TimeoutExpired:
             self._process.kill()
             self._process.wait()
+        returncode = self._process.returncode
         entry = {
             "file": self.current_file.name,
             "started": self.current_started.isoformat() if self.current_started else None,
-            "stopped": datetime.utcnow().isoformat()
+            "stopped": datetime.utcnow().isoformat(),
+            "returncode": returncode,
         }
         self._save_log(entry)
+        self._last_returncode = returncode
         self._process = None
         self.current_file = None
         self.current_started = None
@@ -181,6 +186,7 @@ class RecordingManager:
     def status(self):
         storage = self._ensure_storage()
         if self._process is not None and self._process.poll() is not None:
+            self._last_returncode = self._process.returncode
             self._process = None
             self.current_file = None
             self.current_started = None
@@ -205,6 +211,7 @@ class RecordingManager:
             "storage_present": storage,
             "lidar_detected": lidar_detected,
             "lidar_streaming": lidar_streaming,
+            "last_exit_code": self._last_returncode,
         }
 
     def list_recordings(self):

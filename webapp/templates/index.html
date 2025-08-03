@@ -73,9 +73,11 @@
             showMessage(false, 'No LiDAR detected');
           }else if(statusData.recording && !statusData.lidar_streaming){
             showMessage(false, 'No LiDAR data received');
+          }else if(statusData.last_exit_code !== null && statusData.last_exit_code !== 0){
+            showMessage(false, `Recorder exited with code ${statusData.last_exit_code}`);
           }else{
             const msg = document.getElementById('messages');
-            if(['No external USB drive detected','No LiDAR detected','No LiDAR data received'].includes(msg.textContent)){
+            if(['No external USB drive detected','No LiDAR detected','No LiDAR data received'].includes(msg.textContent) || msg.textContent.startsWith('Recorder exited')){
               msg.textContent = '';
             }
           }
