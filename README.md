@@ -67,6 +67,13 @@ to capture real MID360 data.
      export LIVOX_MOUNT_ROOTS=/media:/mnt/usb
      ```
 
+## Recording Log Retention
+The `recordings.json` file on the USB drive stores metadata for recent
+recordings. By default only the most recent 100 entries are retained. Set the
+`RECORDINGS_LOG_LIMIT` environment variable to change this limit. If
+`RECORDINGS_LOG_ARCHIVE` is set to a truthy value (e.g. `1`), entries beyond
+the limit are appended to `recordings_archive.json` in the same directory.
+
 ## Running
 1. Start the Livox recorder and web server:
    ```bash
