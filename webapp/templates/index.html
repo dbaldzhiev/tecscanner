@@ -7,8 +7,9 @@
   <body>
     <h1>Remote Mandeye Controller for HDMapping</h1>
     <p>Status: <span id="status">{{ 'recording' if status.recording else 'idle' }}</span></p>
-    <button onclick="startRec()">Start</button>
-    <button onclick="stopRec()">Stop</button>
+    <p>Current file: <span id="current-file">{{ status.current_file or '' }}</span></p>
+    <button id="start-btn" onclick="startRec()" {% if status.recording %}disabled{% endif %}>Start</button>
+    <button id="stop-btn" onclick="stopRec()" {% if not status.recording %}disabled{% endif %}>Stop</button>
     <h2>Previous recordings</h2>
     <ul id="recordings">
       {% for r in recordings %}
@@ -16,14 +17,47 @@
       {% endfor %}
     </ul>
     <script>
+      async function fetchStatus() {
+        const res = await fetch('/status');
+        const data = await res.json();
+        document.getElementById('status').textContent = data.recording ? 'recording' : 'idle';
+        document.getElementById('current-file').textContent = data.current_file || '';
+        document.getElementById('start-btn').disabled = data.recording;
+        document.getElementById('stop-btn').disabled = !data.recording;
+      }
+
+      async function fetchRecordings() {
+        const res = await fetch('/recordings');
+        const data = await res.json();
+        const list = document.getElementById('recordings');
+        list.innerHTML = '';
+        for (const r of data.recordings) {
+          const li = document.createElement('li');
+          li.textContent = `${r.file} (stopped ${r.stopped})`;
+          list.appendChild(li);
+        }
+      }
+
       async function startRec(){
         await fetch('/start',{method:'POST'});
-        location.reload();
+        fetchStatus();
+        fetchRecordings();
       }
       async function stopRec(){
         await fetch('/stop',{method:'POST'});
-        location.reload();
+        fetchStatus();
+        fetchRecordings();
       }
+
+      // Poll status and recordings periodically
+      setInterval(() => {
+        fetchStatus();
+        fetchRecordings();
+      }, 2000);
+
+      // Initial population
+      fetchStatus();
+      fetchRecordings();
     </script>
   </body>
 </html>
