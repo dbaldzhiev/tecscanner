@@ -21,7 +21,9 @@ automounted by the operating system. Metadata is tracked in
 `RecordingManager` launches the Livox SDK recorder (similar to the
 `save_laz` utility from
 [`mandeye_controller`](https://github.com/JanuszBedkowski/mandeye_controller))
-to capture real MID360 data.
+to capture real MID360 data. For every frame the recorder writes both a
+compressed `.laz` file and a companion `.csv` export in the session
+directory.
 
 ## Installation
 A convenience script is available to install dependencies and build native
@@ -49,7 +51,8 @@ Alternatively, follow the manual steps below.
    ```
 4. Build the Livox recording utility:
    - The repository includes a minimal `save_laz` program under
-     `save_laz/` which streams MID360 data directly to `.laz` files using
+     `save_laz/` which streams MID360 data directly to `.laz` files (and
+     simultaneously produces `.csv` versions) using
      [LASzip](https://laszip.org/).
    - Build it with CMake:
      ```bash

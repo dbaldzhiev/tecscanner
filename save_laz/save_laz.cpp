@@ -7,6 +7,7 @@
 #include <vector>
 #include <cstring>
 #include <iostream>
+#include <fstream>
 
 // Simple utility that streams Livox MID360 data into a LAZ file.
 // The program runs until it receives SIGINT (Ctrl+C) and mirrors the
@@ -17,6 +18,7 @@ std::atomic_bool running(true);
 laszip_POINTER writer = nullptr;
 laszip_point* laz_point = nullptr;
 std::mutex writer_mutex;
+std::ofstream csv_writer;
 
 void signalHandler(int) {
     running = false;
@@ -36,12 +38,18 @@ void PointCloudCallback(uint32_t, const uint8_t dev_type,
         laz_point->gps_time = static_cast<double>(data->timestamp) * 1e-9;
         laz_point->user_data = pts[i].line_id;
         laz_point->classification = pts[i].tag;
-        laz_point->point_source_id = pts[i].laser_id;
+        laz_point->point_source_ID = pts[i].laser_id;
         coords[0] = 0.001 * pts[i].x;
         coords[1] = 0.001 * pts[i].y;
         coords[2] = 0.001 * pts[i].z;
         laszip_set_coordinates(writer, coords);
         laszip_write_point(writer);
+        csv_writer << coords[0] << ',' << coords[1] << ',' << coords[2] << ','
+                   << static_cast<int>(pts[i].reflectivity) << ','
+                   << laz_point->gps_time << ','
+                   << static_cast<int>(pts[i].line_id) << ','
+                   << static_cast<int>(pts[i].tag) << ','
+                   << static_cast<int>(pts[i].laser_id) << '\n';
     }
 }
 } // namespace
@@ -107,10 +115,26 @@ int main(int argc, char** argv) {
     writer_guard.opened = true;
     laszip_get_point_pointer(writer, &laz_point);
 
+    std::string csv_output = output;
+    auto dot = csv_output.find_last_of('.');
+    if (dot != std::string::npos) {
+        csv_output.replace(dot, std::string::npos, ".csv");
+    } else {
+        csv_output += ".csv";
+    }
+    csv_writer.open(csv_output);
+    if (!csv_writer) {
+        std::cerr << "Failed to open CSV writer" << std::endl;
+        LivoxLidarSdkUninit();
+        return 1;
+    }
+    csv_writer << "x,y,z,intensity,gps_time,line_id,tag,laser_id\n";
+
     while (running) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
     LivoxLidarSdkUninit();
+    csv_writer.close();
     return 0;
 }

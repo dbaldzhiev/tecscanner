@@ -4,7 +4,8 @@ The original implementation in this repository merely simulated a LiDAR
 device by periodically writing mock "point" entries to a file.  This module
 invokes the Livox SDK via an external recording command to capture real
 frames.  Each frame is written to an individual ``.laz`` file inside a
-timestamped session directory on the removable storage.
+timestamped session directory on the removable storage, accompanied by a
+``.csv`` export of the same data.
 
 The path to the Livox recorder executable can be configured via the
 ``LIVOX_RECORD_CMD`` environment variable.  It should point to a command that
@@ -30,10 +31,11 @@ class RecordingManager:
 
     The manager repeatedly invokes an external recorder command (typically the
     ``save_laz`` utility from ``mandeye_controller``) to capture frames.  Each
-    captured frame is stored as ``frame_<n>.laz`` inside a dedicated session
-    directory.  Recordings are always stored on a removable drive that is
-    expected to be automounted under ``/media`` or ``/run/media``.  If no such
-    drive is present, recording cannot start.
+    captured frame is stored as ``frame_<n>.laz`` (with a matching
+    ``frame_<n>.csv``) inside a dedicated session directory.  Recordings are
+    always stored on a removable drive that is expected to be automounted under
+    ``/media`` or ``/run/media``.  If no such drive is present, recording cannot
+    start.
     """
 
     def __init__(self, mount_roots: Optional[List[str]] = None):
@@ -65,6 +67,8 @@ class RecordingManager:
             logger.error("Recorder command '%s' not found; recordings disabled", cmd)
             self.record_cmd = None
             self._recorder_available = False
+        conv = os.getenv("LIVOX_CONVERT_CMD")
+        self.convert_cmd = shutil.which(conv) if conv else None
         self._last_size = 0
         self._last_size_time: Optional[datetime] = None
         self._lock = threading.Lock()
@@ -211,6 +215,17 @@ class RecordingManager:
             logger.warning("Failed to save frame %s: %s", path, e)
             return False
 
+    def _convert_to_csv(self, laz: Path, csv: Path) -> bool:
+        """Convert ``laz`` to ``csv`` using an external command if available."""
+        if self.convert_cmd:
+            try:
+                subprocess.run([self.convert_cmd, str(laz), str(csv)], check=True)
+                return True
+            except (OSError, subprocess.SubprocessError) as e:
+                logger.warning("Failed to convert %s to CSV: %s", laz, e)
+                return False
+        return csv.exists()
+
     def _record_loop(self) -> None:
         """Background loop that saves frames until stopped."""
         frame_idx = 0
@@ -218,8 +233,11 @@ class RecordingManager:
             if not self.current_dir:
                 break
             path = self.current_dir / f"frame_{frame_idx:06d}.laz"
+            csv_path = path.with_suffix(".csv")
             if not self._save_frame(path):
                 break
+            if not csv_path.exists():
+                self._convert_to_csv(path, csv_path)
             try:
                 size = path.stat().st_size
             except OSError:
