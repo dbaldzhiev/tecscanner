@@ -13,6 +13,7 @@ interaction happens through the browser.
 - Stop the current recording.
 - View status and a history of recorded files.
 - Recordings are saved to an attached USB drive and the UI warns if no drive is present.
+- Live status warnings when no LiDAR is detected or no data is streaming.
 
 Recordings are written to a USB flash drive that is expected to be
 automounted by the operating system. Metadata is tracked in
@@ -37,14 +38,27 @@ to capture real MID360 data.
    ```bash
    pip install -r requirements.txt
    ```
-4. Install the Livox drivers and tooling:
-   - Download and build the [Livox SDK](https://github.com/Livox-SDK/Livox-SDK)
-     following the instructions in that repository.
-   - Build the `mandeye_controller` project to obtain the `save_laz` binary
-     which streams LiDAR data to `.laz` files.
-   - Ensure the resulting executable is on your `PATH` or set the
-     `LIVOX_RECORD_CMD` environment variable to its location so the web
+4. Build the Livox recording utility:
+   - The repository includes a minimal `save_laz` program under
+     `save_laz/` which streams MID360 data directly to `.laz` files using
+     [LASzip](https://laszip.org/).
+   - Build it with CMake:
+     ```bash
+     cmake -S save_laz -B save_laz/build
+     cmake --build save_laz/build
+     ```
+   - Make sure the resulting `save_laz` binary is on your `PATH` or set the
+     `LIVOX_RECORD_CMD` environment variable to point to it so the web
      application can invoke it.
+5. Configure the Livox MID360:
+   - Connect the LiDAR and host via Ethernet.
+   - Assign the host interface a static IP such as `192.168.1.5`.
+   - Ensure the MID360 is reachable on the same subnet (the factory default is
+     typically `192.168.1.10`).
+   - Update the provided `mid360_config.json` with the host IP and desired
+     ports (defaults mirror the Livox SDK samples using ports 56100–56501).
+     Place this file next to the `save_laz` binary or set `LIVOX_SDK_CONFIG`
+     to its location.
 
 ## Running
 1. Start the Livox recorder and web server:
