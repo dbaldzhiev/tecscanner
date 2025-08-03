@@ -136,6 +136,8 @@ class RecordingManager:
         if self._process is not None:
             # A recording is already running
             return False, "already_active"
+        if not self._probe_lidar():
+            return False, "no_lidar"
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         self.current_file = self.output_dir / f"recording_{timestamp}.laz"
         self.current_started = datetime.utcnow()
