@@ -13,7 +13,7 @@
   </head>
   <body>
     <h1>Remote Mandeye Controller for HDMapping</h1>
-    <div id="messages"></div>
+    <div id="messages" role="status" aria-live="polite"></div>
     <p>Status: <span id="status">{{ 'recording' if status.recording else 'idle' }}</span></p>
     <p>Current file: <span id="current_file">{{ status.current_file or 'n/a' }}</span></p>
     <p>Started at: <span id="started">{{ status.started or 'n/a' }}</span></p>
