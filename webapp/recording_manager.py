@@ -1,23 +1,19 @@
 """Utilities for managing Livox recordings.
 
 The original implementation in this repository merely simulated a LiDAR
-device by periodically writing mock "point" entries to a file.  This patch
-replaces those sections with real calls to the Livox SDK.  The implementation
-follows the approach used by the
-`mandeye_controller <https://github.com/JanuszBedkowski/mandeye_controller>`_
-project: an external Livox recording binary is spawned which streams data
-directly to a ``.laz`` file.  The recording process is managed with
-``subprocess`` and terminated when recording stops.
+device by periodically writing mock "point" entries to a file.  This module
+invokes the Livox SDK via an external recording command to capture real
+frames.  Each frame is written to an individual ``.laz`` file inside a
+timestamped session directory on the removable storage.
 
 The path to the Livox recorder executable can be configured via the
 ``LIVOX_RECORD_CMD`` environment variable.  It should point to a command that
-accepts the desired output filename as its last argument and records until it
-receives ``SIGINT``.
+accepts the desired output filename as its last argument and exits after
+capturing a frame.
 """
 
 import json
 import os
-import signal
 import subprocess
 import threading
 import time
@@ -32,13 +28,12 @@ logger = logging.getLogger(__name__)
 class RecordingManager:
     """Manage MID360 recordings by delegating to the Livox SDK.
 
-    The manager spawns an external recorder process (typically the
-    ``save_laz`` utility from ``mandeye_controller``) and tracks the produced
-    file.  The process is started when ``start_recording`` is called and is
-    stopped via ``SIGINT`` when ``stop_recording`` is requested.  Recordings
-    are always stored on a removable drive that is expected to be automounted
-    under ``/media`` or ``/run/media``.  If no such drive is present,
-    recording cannot start.
+    The manager repeatedly invokes an external recorder command (typically the
+    ``save_laz`` utility from ``mandeye_controller``) to capture frames.  Each
+    captured frame is stored as ``frame_<n>.laz`` inside a dedicated session
+    directory.  Recordings are always stored on a removable drive that is
+    expected to be automounted under ``/media`` or ``/run/media``.  If no such
+    drive is present, recording cannot start.
     """
 
     def __init__(self, mount_roots: Optional[List[str]] = None):
@@ -54,9 +49,12 @@ class RecordingManager:
         self.output_dir: Optional[Path] = None
         self.log_file: Optional[Path] = None
         self.archive_file: Optional[Path] = None
-        self._process: Optional[subprocess.Popen] = None
+        self._thread: Optional[threading.Thread] = None
+        self._stop_event: Optional[threading.Event] = None
+        self.current_dir: Optional[Path] = None
         self.current_file: Optional[Path] = None
         self.current_started: Optional[datetime] = None
+        self.frame_counter: int = 0
         # Allow overriding the command used to invoke the recorder.
         cmd = os.getenv("LIVOX_RECORD_CMD", "save_laz")
         resolved = shutil.which(cmd)
@@ -202,31 +200,55 @@ class RecordingManager:
                 self._lidar_detected = detected
             time.sleep(self._probe_interval)
 
+    def _save_frame(self, path: Path) -> bool:
+        """Invoke the recorder to capture a single frame to ``path``."""
+        if not self.record_cmd:
+            return False
+        try:
+            subprocess.run([self.record_cmd, str(path)], check=True)
+            return True
+        except (OSError, subprocess.SubprocessError) as e:
+            logger.warning("Failed to save frame %s: %s", path, e)
+            return False
+
+    def _record_loop(self) -> None:
+        """Background loop that saves frames until stopped."""
+        frame_idx = 0
+        while self._stop_event and not self._stop_event.is_set():
+            if not self.current_dir:
+                break
+            path = self.current_dir / f"frame_{frame_idx:06d}.laz"
+            if not self._save_frame(path):
+                break
+            try:
+                size = path.stat().st_size
+            except OSError:
+                size = 0
+            now = datetime.utcnow()
+            with self._lock:
+                self.current_file = path
+                self.frame_counter = frame_idx + 1
+                self._last_size = size
+                self._last_size_time = now
+            frame_idx += 1
+
     # ---- public API -------------------------------------------------------
     def start_recording(self) -> tuple[bool, Optional[str]]:
         """Start a Livox recording.
 
         Returns a tuple ``(started, error)`` where ``started`` indicates
-        whether the external recorder process was launched and ``error`` is
-        ``None`` on success or a string identifying the failure.  Possible
-        error codes are ``"already_active"`` when a recording is in progress,
-        ``"no_recorder"`` when the recorder command is missing, and
-        ``"spawn_failed"`` when the recorder process cannot be created.
+        whether the recording thread was launched and ``error`` is ``None`` on
+        success or a string identifying the failure.  Possible error codes are
+        ``"already_active"`` when a recording is in progress, ``"no_recorder"``
+        when the recorder command is missing, and ``"spawn_failed"`` when the
+        recording loop cannot be created.
         """
 
         with self._lock:
             if not self._recorder_available:
                 return False, "no_recorder"
-            if self._process is not None:
-                # Check if the previous process has exited
-                if self._process.poll() is not None:
-                    self._process = None
-                    self.current_file = None
-                    self.current_started = None
-                else:
-                    # A recording is already running
-                    return False, "already_active"
-
+            if self._thread and self._thread.is_alive():
+                return False, "already_active"
             if not self._ensure_storage():
                 return False, "no_storage"
             cached_detected = self._lidar_detected
@@ -239,30 +261,27 @@ class RecordingManager:
             self._lidar_detected = cached_detected
             if not cached_detected:
                 return False, "no_lidar"
-
-            # Re-check recording state in case it changed while the lock was released
-            if self._process is not None:
-                if self._process.poll() is not None:
-                    self._process = None
-                    self.current_file = None
-                    self.current_started = None
-                else:
-                    return False, "already_active"
-
+            if self._thread and self._thread.is_alive():
+                return False, "already_active"
             if not self._ensure_storage():
                 return False, "no_storage"
 
             timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-            self.current_file = self.output_dir / f"recording_{timestamp}.laz"
+            self.current_dir = self.output_dir / f"session_{timestamp}"
+            self.current_dir.mkdir(parents=True, exist_ok=True)
             self.current_started = datetime.utcnow()
+            self.current_file = None
+            self.frame_counter = 0
             self._last_size = 0
             self._last_size_time = None
-            cmd = [self.record_cmd, str(self.current_file)]
+            self._stop_event = threading.Event()
+            self._thread = threading.Thread(target=self._record_loop, daemon=True)
             try:
-                self._process = subprocess.Popen(cmd)
-            except OSError:
-                # Failed to start external recorder
-                self.current_file = None
+                self._thread.start()
+            except RuntimeError:
+                self._thread = None
+                self._stop_event = None
+                self.current_dir = None
                 self.current_started = None
                 return False, "spawn_failed"
             return True, None
@@ -270,24 +289,25 @@ class RecordingManager:
     def stop_recording(self) -> bool:
         """Stop the Livox recording and log the result."""
         with self._lock:
-            if self._process is None:
+            if not self._thread or not self._thread.is_alive():
                 return False
-            # Politely ask the process to terminate; fall back to kill.
-            self._process.send_signal(signal.SIGINT)
-            try:
-                self._process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                self._process.kill()
-                self._process.wait()
+            self._stop_event.set()
+            thread = self._thread
+        thread.join()
+        with self._lock:
             entry = {
-                "file": self.current_file.name,
+                "folder": self.current_dir.name if self.current_dir else None,
+                "frames": self.frame_counter,
                 "started": self.current_started.isoformat() if self.current_started else None,
-                "stopped": datetime.utcnow().isoformat()
+                "stopped": datetime.utcnow().isoformat(),
             }
             self._save_log(entry)
-            self._process = None
+            self._thread = None
+            self._stop_event = None
+            self.current_dir = None
             self.current_file = None
             self.current_started = None
+            self.frame_counter = 0
             self._last_size = 0
             self._last_size_time = None
             return True
@@ -295,37 +315,38 @@ class RecordingManager:
     def status(self):
         with self._lock:
             storage = self._ensure_storage()
-            if self._process is not None and self._process.poll() is not None:
-                self._process = None
+            if self._thread and not self._thread.is_alive():
+                self._thread = None
+                self._stop_event = None
+                self.current_dir = None
                 self.current_file = None
                 self.current_started = None
+                self.frame_counter = 0
             lidar_detected = self._lidar_detected
             lidar_streaming = False
             current_size = None
-            if self._process and self.current_file:
+            if self.current_file:
                 try:
-                    size = self.current_file.stat().st_size
-                    current_size = size
-                    now = datetime.utcnow()
-                    if size != self._last_size:
-                        self._last_size = size
-                        self._last_size_time = now
-                        lidar_streaming = True
-                    elif self._last_size_time and (now - self._last_size_time).total_seconds() < 2:
-                        lidar_streaming = True
+                    current_size = self.current_file.stat().st_size
                 except OSError:
-                    pass
-            return {
-                "recording": self._process is not None,
-                "current_file": self.current_file.name if self.current_file else None,
-                "started": self.current_started.isoformat() if self.current_started else None,
-                "current_size": current_size,
-                "storage_present": storage,
-                "lidar_detected": lidar_detected,
-                "lidar_streaming": lidar_streaming,
-                "log_error": self._log_error,
-                "archive_error": self._archive_error,
-            }
+                    current_size = None
+            if self._last_size_time:
+                now = datetime.utcnow()
+                if (now - self._last_size_time).total_seconds() < 2:
+                    lidar_streaming = True
+        return {
+            "recording": self._thread is not None,
+            "current_file": self.current_file.name if self.current_file else None,
+            "current_session": self.current_dir.name if self.current_dir else None,
+            "started": self.current_started.isoformat() if self.current_started else None,
+            "frames_recorded": self.frame_counter,
+            "current_size": current_size,
+            "storage_present": storage,
+            "lidar_detected": lidar_detected,
+            "lidar_streaming": lidar_streaming,
+            "log_error": self._log_error,
+            "archive_error": self._archive_error,
+        }
 
     def list_recordings(self):
         self._ensure_storage()
