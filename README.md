@@ -1,10 +1,12 @@
-# MID360 Remote Controller
+# Remote Mandeye Controller for HDMapping
 
 This repository provides a lightweight web application for remotely
-controlling a Livox MID360 LiDAR. The web interface exposes controls to
-start and stop recordings and displays a list of previous recordings.
-No physical buttons or switches are required; all interaction happens
-through the browser.
+controlling a Livox MID360 LiDAR. It is inspired by and compatible with
+[mandeye_controller](https://github.com/JanuszBedkowski/mandeye_controller)
+and [HDMapping](https://github.com/MapsHD/HDMapping). The web interface
+exposes controls to start and stop recordings and displays a list of
+previous recordings. No physical buttons or switches are required; all
+interaction happens through the browser.
 
 ## Features
 - Start a new LiDAR recording.
@@ -16,17 +18,30 @@ directory and logs metadata in `recordings/recordings.json`. Replace the
 mocked sections in `recording_manager.py` with calls to the actual Livox
 SDK for hardware integration.
 
-## Getting Started
-1. Install dependencies:
+## Installation
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/<your-username>/tecscanner.git
+   cd tecscanner
+   ```
+2. (Optional) create and activate a virtual environment:
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
+   ```
+3. Install Python dependencies:
    ```bash
    pip install -r requirements.txt
    ```
-2. Run the development server:
+
+## Running
+1. Start the development server:
    ```bash
-   flask --app webapp run
+   flask --app webapp run --host=0.0.0.0
    ```
-3. Open a browser at [http://localhost:5000](http://localhost:5000) to
-   control the scanner.
+2. Open a browser at [http://localhost:5000](http://localhost:5000) or use
+   the host's IP address if accessing from another machine to control the
+   scanner.
 
 ## API Endpoints
 - `POST /start` – begin recording.
