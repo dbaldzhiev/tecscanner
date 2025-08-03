@@ -24,6 +24,15 @@ automounted by the operating system. Metadata is tracked in
 to capture real MID360 data.
 
 ## Installation
+A convenience script is available to install dependencies and build native
+components automatically:
+
+```bash
+bash scripts/install.sh
+```
+
+Alternatively, follow the manual steps below.
+
 1. Clone the repository:
    ```bash
    git clone https://github.com/<your-username>/tecscanner.git
@@ -82,6 +91,11 @@ the limit are appended to `recordings_archive.json` in the same directory.
 2. Open a browser at [http://localhost:5000](http://localhost:5000) or use
    the host's IP address if accessing from another machine to control the
    scanner.
+
+To have the web application start automatically on boot, run
+`scripts/setup_service.sh`. The script creates and enables a `systemd`
+service that launches the Flask application using this repository's virtual
+environment.
 
 ## API Endpoints
 - `POST /start` – begin recording.
