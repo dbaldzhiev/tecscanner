@@ -59,6 +59,13 @@ to capture real MID360 data.
      ports (defaults mirror the Livox SDK samples using ports 56100–56501).
      Place this file next to the `save_laz` binary or set `LIVOX_SDK_CONFIG`
      to its location.
+6. (Optional) specify where to look for removable storage:
+   - By default the application searches `/media` and `/run/media` for a mounted
+     USB drive. Set the `LIVOX_MOUNT_ROOTS` environment variable to a
+     colon-separated list of paths to check additional locations.
+     ```bash
+     export LIVOX_MOUNT_ROOTS=/media:/mnt/usb
+     ```
 
 ## Running
 1. Start the Livox recorder and web server:
