@@ -58,6 +58,7 @@ to capture real MID360 data.
 - `POST /stop` – end the current recording.
 - `GET /status` – retrieve JSON describing the current state.
 - `GET /recordings` – list metadata for previous recordings.
+- `GET /logs/<log_file>` – fetch recorder output for troubleshooting.
 
 ## License
 See [LICENSE](LICENSE) for license information.

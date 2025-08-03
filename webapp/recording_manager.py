@@ -22,6 +22,7 @@ import subprocess
 from typing import Optional
 from datetime import datetime
 from pathlib import Path
+import logging
 
 class RecordingManager:
     """Manage MID360 recordings by delegating to the Livox SDK.
@@ -36,7 +37,9 @@ class RecordingManager:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self._process: Optional[subprocess.Popen] = None
+        self._log_handle = None
         self.current_file: Optional[Path] = None
+        self.current_log: Optional[Path] = None
         self.log_file = self.output_dir / "recordings.json"
         if not self.log_file.exists():
             self.log_file.write_text("[]")
@@ -62,11 +65,19 @@ class RecordingManager:
             return False
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         self.current_file = self.output_dir / f"recording_{timestamp}.laz"
+        self.current_log = self.output_dir / f"recording_{timestamp}.log"
         cmd = [self.record_cmd, str(self.current_file)]
+        logging.info("Starting recorder: %s", " ".join(cmd))
         try:
-            self._process = subprocess.Popen(cmd)
+            log_handle = open(self.current_log, "w")
+            self._process = subprocess.Popen(
+                cmd, stdout=log_handle, stderr=subprocess.STDOUT
+            )
+            self._log_handle = log_handle
         except OSError:
             # Failed to start external recorder
+            if self.current_log and self.current_log.exists():
+                self.current_log.unlink()
             self.current_file = None
             return False
         return True
@@ -85,18 +96,30 @@ class RecordingManager:
             self._process.wait()
         entry = {
             "file": self.current_file.name,
-            "stopped": datetime.utcnow().isoformat()
+            "log": self.current_log.name if self.current_log else None,
+            "stopped": datetime.utcnow().isoformat(),
         }
         self._save_log(entry)
+        if self._log_handle:
+            self._log_handle.close()
+            self._log_handle = None
         self._process = None
         self.current_file = None
+        self.current_log = None
         return True
 
     def status(self):
         return {
             "recording": self._process is not None,
             "current_file": self.current_file.name if self.current_file else None,
+            "log_file": self.current_log.name if self.current_log else None,
         }
 
     def list_recordings(self):
         return json.loads(self.log_file.read_text())
+
+    def get_log(self, name: str) -> Optional[str]:
+        path = self.output_dir / name
+        if path.is_file():
+            return path.read_text()
+        return None

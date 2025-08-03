@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, Response
 from .recording_manager import RecordingManager
 
 manager = RecordingManager()
@@ -31,3 +31,11 @@ def status():
 @app.get('/recordings')
 def recordings():
     return {'recordings': manager.list_recordings()}
+
+
+@app.get('/logs/<path:log_name>')
+def logs(log_name):
+    content = manager.get_log(log_name)
+    if content is None:
+        return {'error': 'log not found'}, 404
+    return Response(content, mimetype='text/plain')
