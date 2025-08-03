@@ -37,10 +37,11 @@ SDK for hardware integration.
 ## Running
 1. Start the development server:
    ```bash
-   flask --app webapp run
+   flask --app webapp run --host=0.0.0.0
    ```
-2. Open a browser at [http://localhost:5000](http://localhost:5000) to
-   control the scanner.
+2. Open a browser at [http://localhost:5000](http://localhost:5000) or use
+   the host's IP address if accessing from another machine to control the
+   scanner.
 
 ## API Endpoints
 - `POST /start` – begin recording.
