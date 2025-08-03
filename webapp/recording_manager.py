@@ -19,6 +19,7 @@ import json
 import os
 import signal
 import subprocess
+import threading
 from typing import Optional, List
 from datetime import datetime
 from pathlib import Path
@@ -50,6 +51,7 @@ class RecordingManager:
         self.record_cmd = os.getenv("LIVOX_RECORD_CMD", "save_laz")
         self._last_size = 0
         self._last_size_time: Optional[datetime] = None
+        self._lock = threading.Lock()
         self._ensure_storage()
 
     # ---- internal helpers -------------------------------------------------
@@ -131,81 +133,83 @@ class RecordingManager:
         and ``"spawn_failed"`` when the recorder process cannot be created.
         """
 
-        if not self._ensure_storage():
-            return False, "no_storage"
-        if self._process is not None:
-            # A recording is already running
-            return False, "already_active"
-        if not self._probe_lidar():
-            return False, "no_lidar"
-        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        self.current_file = self.output_dir / f"recording_{timestamp}.laz"
-        self.current_started = datetime.utcnow()
-        self._last_size = 0
-        self._last_size_time = None
-        cmd = [self.record_cmd, str(self.current_file)]
-        try:
-            self._process = subprocess.Popen(cmd)
-        except OSError:
-            # Failed to start external recorder
-            self.current_file = None
-            self.current_started = None
-            return False, "spawn_failed"
-        return True, None
+        with self._lock:
+            if not self._ensure_storage():
+                return False, "no_storage"
+            if self._process is not None:
+                # A recording is already running
+                return False, "already_active"
+            if not self._probe_lidar():
+                return False, "no_lidar"
+            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+            self.current_file = self.output_dir / f"recording_{timestamp}.laz"
+            self.current_started = datetime.utcnow()
+            self._last_size = 0
+            self._last_size_time = None
+            cmd = [self.record_cmd, str(self.current_file)]
+            try:
+                self._process = subprocess.Popen(cmd)
+            except OSError:
+                # Failed to start external recorder
+                self.current_file = None
+                self.current_started = None
+                return False, "spawn_failed"
+            return True, None
 
     def stop_recording(self) -> bool:
         """Stop the Livox recording and log the result."""
-
-        if self._process is None:
-            return False
-        # Politely ask the process to terminate; fall back to kill.
-        self._process.send_signal(signal.SIGINT)
-        try:
-            self._process.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            self._process.kill()
-            self._process.wait()
-        entry = {
-            "file": self.current_file.name,
-            "started": self.current_started.isoformat() if self.current_started else None,
-            "stopped": datetime.utcnow().isoformat()
-        }
-        self._save_log(entry)
-        self._process = None
-        self.current_file = None
-        self.current_started = None
-        self._last_size = 0
-        self._last_size_time = None
-        return True
-
-    def status(self):
-        storage = self._ensure_storage()
-        if self._process is not None and self._process.poll() is not None:
+        with self._lock:
+            if self._process is None:
+                return False
+            # Politely ask the process to terminate; fall back to kill.
+            self._process.send_signal(signal.SIGINT)
+            try:
+                self._process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                self._process.kill()
+                self._process.wait()
+            entry = {
+                "file": self.current_file.name,
+                "started": self.current_started.isoformat() if self.current_started else None,
+                "stopped": datetime.utcnow().isoformat()
+            }
+            self._save_log(entry)
             self._process = None
             self.current_file = None
             self.current_started = None
-        lidar_detected = self._probe_lidar()
-        lidar_streaming = False
-        if self._process and self.current_file:
-            try:
-                size = self.current_file.stat().st_size
-                now = datetime.utcnow()
-                if size != self._last_size:
-                    self._last_size = size
-                    self._last_size_time = now
-                    lidar_streaming = True
-                elif self._last_size_time and (now - self._last_size_time).total_seconds() < 2:
-                    lidar_streaming = True
-            except OSError:
-                pass
-        return {
-            "recording": self._process is not None,
-            "current_file": self.current_file.name if self.current_file else None,
-            "started": self.current_started.isoformat() if self.current_started else None,
-            "storage_present": storage,
-            "lidar_detected": lidar_detected,
-            "lidar_streaming": lidar_streaming,
-        }
+            self._last_size = 0
+            self._last_size_time = None
+            return True
+
+    def status(self):
+        with self._lock:
+            storage = self._ensure_storage()
+            if self._process is not None and self._process.poll() is not None:
+                self._process = None
+                self.current_file = None
+                self.current_started = None
+            lidar_detected = self._probe_lidar()
+            lidar_streaming = False
+            if self._process and self.current_file:
+                try:
+                    size = self.current_file.stat().st_size
+                    now = datetime.utcnow()
+                    if size != self._last_size:
+                        self._last_size = size
+                        self._last_size_time = now
+                        lidar_streaming = True
+                    elif self._last_size_time and (now - self._last_size_time).total_seconds() < 2:
+                        lidar_streaming = True
+                except OSError:
+                    pass
+            return {
+                "recording": self._process is not None,
+                "current_file": self.current_file.name if self.current_file else None,
+                "started": self.current_started.isoformat() if self.current_started else None,
+                "storage_present": storage,
+                "lidar_detected": lidar_detected,
+                "lidar_streaming": lidar_streaming,
+            }
 
     def list_recordings(self):
         self._ensure_storage()
