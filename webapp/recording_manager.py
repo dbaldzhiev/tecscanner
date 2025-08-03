@@ -40,7 +40,14 @@ class RecordingManager:
     """
 
     def __init__(self, mount_roots: Optional[List[str]] = None):
-        self.mount_roots = mount_roots or ["/media", "/run/media"]
+        if mount_roots is not None:
+            self.mount_roots = mount_roots
+        else:
+            env_roots = os.getenv("LIVOX_MOUNT_ROOTS")
+            if env_roots:
+                self.mount_roots = [r for r in env_roots.split(os.pathsep) if r]
+            else:
+                self.mount_roots = ["/media", "/run/media"]
         self.usb_mount: Optional[Path] = None
         self.output_dir: Optional[Path] = None
         self.log_file: Optional[Path] = None
