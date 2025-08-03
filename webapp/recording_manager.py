@@ -22,6 +22,9 @@ import subprocess
 from typing import Optional
 from datetime import datetime
 from pathlib import Path
+import logging
+
+logger = logging.getLogger(__name__)
 
 class RecordingManager:
     """Manage MID360 recordings by delegating to the Livox SDK.
@@ -39,15 +42,28 @@ class RecordingManager:
         self.current_file: Optional[Path] = None
         self.log_file = self.output_dir / "recordings.json"
         if not self.log_file.exists():
-            self.log_file.write_text("[]")
+            self._write_log([])
         # Allow overriding the command used to invoke the recorder.
         self.record_cmd = os.getenv("LIVOX_RECORD_CMD", "save_laz")
 
     # ---- internal helpers -------------------------------------------------
+    def _load_log(self):
+        try:
+            return json.loads(self.log_file.read_text())
+        except json.JSONDecodeError:
+            logger.error("Corrupted recordings log detected; resetting")
+            self._write_log([])
+            return []
+
+    def _write_log(self, data):
+        tmp_path = self.log_file.with_name(self.log_file.name + ".tmp")
+        tmp_path.write_text(json.dumps(data, indent=2))
+        os.replace(tmp_path, self.log_file)
+
     def _save_log(self, entry):
-        data = json.loads(self.log_file.read_text())
+        data = self._load_log()
         data.append(entry)
-        self.log_file.write_text(json.dumps(data, indent=2))
+        self._write_log(data)
 
     # ---- public API -------------------------------------------------------
     def start_recording(self) -> tuple[bool, Optional[str]]:
@@ -105,4 +121,4 @@ class RecordingManager:
         }
 
     def list_recordings(self):
-        return json.loads(self.log_file.read_text())
+        return self._load_log()
