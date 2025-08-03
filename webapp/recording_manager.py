@@ -197,9 +197,11 @@ class RecordingManager:
                 self.current_started = None
             lidar_detected = self._probe_lidar()
             lidar_streaming = False
+            current_size = None
             if self._process and self.current_file:
                 try:
                     size = self.current_file.stat().st_size
+                    current_size = size
                     now = datetime.utcnow()
                     if size != self._last_size:
                         self._last_size = size
@@ -213,6 +215,7 @@ class RecordingManager:
                 "recording": self._process is not None,
                 "current_file": self.current_file.name if self.current_file else None,
                 "started": self.current_started.isoformat() if self.current_started else None,
+                "current_size": current_size,
                 "storage_present": storage,
                 "lidar_detected": lidar_detected,
                 "lidar_streaming": lidar_streaming,
