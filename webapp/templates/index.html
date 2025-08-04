@@ -101,7 +101,10 @@
         <h2>Previous recordings</h2>
         <ul id="recordings">
           {% for r in recordings %}
-            <li>{{ r.folder }} {% if r.started %}(started {{ r.started }}, {% endif %}stopped {{ r.stopped }}, frames {{ r.frames }})</li>
+            <li>
+              {{ r.folder }} {% if r.started %}(started {{ r.started }}, {% endif %}
+              stopped {{ r.stopped }}, frames {{ r.frames }})
+            </li>
           {% endfor %}
         </ul>
       </section>
