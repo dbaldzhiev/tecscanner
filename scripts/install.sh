@@ -16,7 +16,7 @@ fi
 
 echo "Installing system packages..."
 sudo apt update
-sudo apt install -y git build-essential cmake python3-venv python3-dev usbmount network-manager
+sudo apt install -y git build-essential cmake python3-venv python3-dev network-manager
 
 echo "Building Livox-SDK2..."
 cmake -S "$PROJECT_ROOT/3rd/Livox-SDK2" -B "$PROJECT_ROOT/3rd/Livox-SDK2/build"
@@ -40,6 +40,11 @@ fi
 source "$PROJECT_ROOT/.venv/bin/activate"
 pip install --upgrade pip
 pip install Flask
+
+echo "Installing USB automount udev rules..."
+sudo install -m 0755 "$PROJECT_ROOT/scripts/usb-automount.sh" /usr/local/sbin/usb-automount.sh
+sudo install -m 0644 "$PROJECT_ROOT/scripts/99-usb-automount.rules" /etc/udev/rules.d/99-usb-automount.rules
+sudo udevadm control --reload-rules
 
 echo "Configuring static IP 192.168.6.1 on eth0 via NetworkManager..."
 sudo nmcli con mod "Wired connection 1" ipv4.method manual ipv4.addresses 192.168.6.1/24
