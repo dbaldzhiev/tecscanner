@@ -5,3 +5,5 @@ build/
 build*/
 BUILD/
 BUILD*/
+venv/
+webapp/__pycache__/
