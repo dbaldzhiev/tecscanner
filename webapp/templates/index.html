@@ -43,6 +43,12 @@
         border-radius: 4px;
         font-size: 0.9rem;
       }
+      .status-grid progress {
+        width: 100%;
+        height: 8px;
+        display: block;
+        margin-top: .25rem;
+      }
       #actions {
         display: flex;
         justify-content: space-between;
@@ -85,13 +91,26 @@
     <main class="container">
       <h1>Remote Mandeye Controller for HDMapping</h1>
       <div id="messages" role="status" aria-live="polite"></div>
+      <div id="polling_control" style="text-align:center;margin-bottom:1rem;">
+        <label><input type="checkbox" id="polling_toggle" {% if polling_default %}checked{% endif %}> Live updates</label>
+      </div>
       <div class="status-grid">
         <p>Status: <span id="status">{{ 'recording' if status.recording else 'idle' }}</span></p>
         <p>Current file: <span id="current_file">{{ status.current_file or 'n/a' }}</span></p>
         <p>Started at: <span id="started">{{ status.started or 'n/a' }}</span></p>
         <p>Elapsed: <span id="elapsed">00:00:00 (0.00 MB)</span></p>
+        <p>Frames recorded: <span id="frames_recorded">{{ status.frames_recorded or 0 }}</span></p>
+        <p>Data rate: <span id="data_rate">0 MB/s</span></p>
         <p>LiDAR connection: <span id="lidar_status">unknown</span></p>
-        <p>LiDAR stream: <span id="stream_status">n/a</span></p>
+        <p>LiDAR stream: <span id="stream_status">
+          {% if status.recording %}
+            {% if status.lidar_streaming %}streaming{% else %}no data{% endif %}
+          {% else %}
+            {% if status.lidar_detected %}idle{% else %}n/a{% endif %}
+          {% endif %}
+        </span>
+          <progress id="stream_progress" max="1" value="{{ 1 if status.lidar_streaming else 0 }}"></progress>
+        </p>
       </div>
       <div id="actions">
         <button id="start_btn" onclick="startRec()">Start</button>
@@ -110,6 +129,15 @@
       </section>
     </main>
     <script>
+      const pollingToggle = document.getElementById('polling_toggle');
+      let pollingEnabled = pollingToggle.checked;
+      pollingToggle.addEventListener('change', (e) => {
+        pollingEnabled = e.target.checked;
+        if(pollingEnabled){
+          updateStatusAndRecordings();
+        }
+      });
+
       async function startRec(){
         try{
           const res = await fetch('/start',{method:'POST'});
@@ -161,6 +189,7 @@
             document.getElementById('status').textContent = statusData.recording ? 'recording' : 'idle';
             document.getElementById('current_file').textContent = statusData.current_file || 'n/a';
             document.getElementById('started').textContent = statusData.started || 'n/a';
+            document.getElementById('frames_recorded').textContent = statusData.frames_recorded || 0;
             const startBtn = document.getElementById('start_btn');
             const stopBtn = document.getElementById('stop_btn');
             startBtn.disabled = statusData.recording;
@@ -176,25 +205,30 @@
               lidarEl.style.color = 'red';
             }
             const streamEl = document.getElementById('stream_status');
+            const streamProg = document.getElementById('stream_progress');
             if(statusData.recording){
               if(statusData.lidar_streaming){
                 streamEl.innerHTML = '<span aria-hidden="true">✅</span> streaming';
                 streamEl.setAttribute('aria-label', 'streaming');
                 streamEl.style.color = 'green';
+                streamProg.value = 1;
               }else{
                 streamEl.innerHTML = '<span aria-hidden="true">❌</span> no data';
                 streamEl.setAttribute('aria-label', 'no data');
                 streamEl.style.color = 'red';
+                streamProg.value = 0;
               }
             }else{
               if(statusData.lidar_detected){
                 streamEl.textContent = 'idle';
                 streamEl.setAttribute('aria-label', 'idle');
                 streamEl.style.color = 'black';
+                streamProg.value = 0;
               }else{
                 streamEl.innerHTML = '<span aria-hidden="true">❌</span> n/a';
                 streamEl.setAttribute('aria-label', 'not available');
                 streamEl.style.color = 'red';
+                streamProg.value = 0;
               }
             }
             if(!statusData.storage_present){
@@ -214,9 +248,16 @@
             if(statusData.recording && statusData.started){
               const elapsedMs = Date.now() - Date.parse(statusData.started);
               const elapsedStr = formatDuration(Math.floor(elapsedMs/1000));
+              const elapsedSec = elapsedMs/1000;
               document.getElementById('elapsed').textContent = `${elapsedStr} (${sizeStr})`;
+              let rateStr = '0 MB/s';
+              if(elapsedSec > 0 && statusData.current_size){
+                rateStr = `${formatSize(statusData.current_size/elapsedSec)}/s`;
+              }
+              document.getElementById('data_rate').textContent = rateStr;
             }else{
               document.getElementById('elapsed').textContent = `00:00:00 (${sizeStr})`;
+              document.getElementById('data_rate').textContent = '0 MB/s';
             }
           }else{
             showMessage(false, 'failed to fetch status');
@@ -248,8 +289,8 @@
       // Periodically refresh status to provide live updates
       // Poll less frequently to reduce server load; a push-based approach
       // (e.g. WebSockets) could be used in the future.
-      setInterval(updateStatusAndRecordings, 5000);
-      updateStatusAndRecordings();
+      setInterval(() => { if(pollingEnabled) updateStatusAndRecordings(); }, 5000);
+      if(pollingEnabled) updateStatusAndRecordings();
     </script>
   </body>
 </html>
