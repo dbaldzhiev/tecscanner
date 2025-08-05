@@ -1,5 +1,9 @@
 from flask import Flask
+from .logging_config import configure_logging
 from .recording_manager import RecordingManager
+
+# Set up application-wide logging before creating components that may emit logs.
+configure_logging()
 
 manager = RecordingManager()
 
