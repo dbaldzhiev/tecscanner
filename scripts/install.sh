@@ -80,16 +80,17 @@ else
   echo "USB automount udev rules already installed."
 fi
 
-NM_CON="Wired connection 1"
-CURRENT_IP=$(nmcli -g ipv4.addresses con show "$NM_CON" 2>/dev/null || true)
-if [[ "$CURRENT_IP" != "192.168.6.1/24" ]]; then
-  echo "Configuring static IP 192.168.6.1 on eth0 via NetworkManager..."
-  sudo nmcli con mod "$NM_CON" ipv4.method manual ipv4.addresses 192.168.6.1/24
-  sudo nmcli con mod "$NM_CON" ipv4.gateway ""
-  sudo nmcli con mod "$NM_CON" ipv4.dns ""
-  sudo nmcli con up "$NM_CON"
+STATIC_PROFILE="tecscanner-static"
+ETH_DEV=$(nmcli device | awk '/ethernet/ {print $1}' | head -n1)
+
+if ! nmcli con show "$STATIC_PROFILE" >/dev/null 2>&1; then
+  echo "Creating persistent NetworkManager profile '$STATIC_PROFILE' with static IP..."
+  sudo nmcli con add type ethernet ifname "$ETH_DEV" con-name "$STATIC_PROFILE" ipv4.method manual ipv4.addresses 192.168.6.1/24
+  sudo nmcli con mod "$STATIC_PROFILE" ipv4.gateway ""
+  sudo nmcli con mod "$STATIC_PROFILE" ipv4.dns ""
+  sudo nmcli con up "$STATIC_PROFILE"
 else
-  echo "Static IP already configured."
+  echo "Static IP profile '$STATIC_PROFILE' already exists."
 fi
 
 echo "Installation complete."
