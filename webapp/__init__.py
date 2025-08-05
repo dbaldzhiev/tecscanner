@@ -1,4 +1,5 @@
 from flask import Flask
+import os
 from .logging_config import configure_logging
 from .recording_manager import RecordingManager
 
@@ -12,7 +13,13 @@ app = Flask(__name__)
 @app.route('/')
 def index():
     from flask import render_template
-    return render_template('index.html', status=manager.status(), recordings=manager.list_recordings())
+    polling_default = os.getenv('ENABLE_METRIC_POLLING', '1').lower() not in ('0', 'false', 'no')
+    return render_template(
+        'index.html',
+        status=manager.status(),
+        recordings=manager.list_recordings(),
+        polling_default=polling_default,
+    )
 
 @app.post('/start')
 def start_recording():
