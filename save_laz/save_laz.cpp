@@ -38,23 +38,26 @@ void PointCloudCallback(uint32_t, const uint8_t, LivoxLidarEthernetPacket* data,
 	LivoxLidarCartesianHighRawPoint* pts = reinterpret_cast<LivoxLidarCartesianHighRawPoint*>(data->data);
 	laszip_F64 coords[3];
 	std::lock_guard<std::mutex> lk(writer_mutex);
-	uint64_t ts = 0;
-	std::memcpy(&ts, data->timestamp, sizeof(ts));
-	for(uint32_t i = 0; i < data->dot_num; ++i)
-	{
-		laz_point->intensity = pts[i].reflectivity;
-		laz_point->gps_time = static_cast<double>(ts) * 1e-9;
-		laz_point->user_data = 0;
-		laz_point->classification = pts[i].tag;
-		laz_point->point_source_ID = 0;
-		coords[0] = 0.001 * pts[i].x;
-		coords[1] = 0.001 * pts[i].y;
-		coords[2] = 0.001 * pts[i].z;
-		laszip_set_coordinates(writer, coords);
-		laszip_write_point(writer);
-		csv_writer << coords[0] << ',' << coords[1] << ',' << coords[2] << ',' << static_cast<int>(pts[i].reflectivity) << ','
-				   << static_cast<double>(ts) * 1e-9 << ',' << 0 << ',' << static_cast<int>(pts[i].tag) << ',' << 0 << '\n';
-	}
+        uint64_t ts = 0;
+        std::memcpy(&ts, data->timestamp, sizeof(ts));
+        const double gps_time = static_cast<double>(ts) * 1e-9;
+        for(uint32_t i = 0; i < data->dot_num; ++i)
+        {
+                laz_point->intensity = pts[i].reflectivity;
+                laz_point->gps_time = gps_time;
+                laz_point->user_data = 0;
+                laz_point->classification = pts[i].tag;
+                laz_point->point_source_ID = 0;
+                coords[0] = 0.001 * pts[i].x;
+                coords[1] = 0.001 * pts[i].y;
+                coords[2] = 0.001 * pts[i].z;
+                laszip_set_coordinates(writer, coords);
+                laszip_write_point(writer);
+                csv_writer << coords[0] << ',' << coords[1] << ',' << coords[2] << ','
+                           << static_cast<int>(pts[i].reflectivity) << ','
+                           << gps_time << ',' << 0 << ','
+                           << static_cast<int>(pts[i].tag) << ',' << 0 << '\n';
+        }
 	frame_done = true;
 	running = false;
 }
