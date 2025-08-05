@@ -38,6 +38,7 @@ void PointCloudCallback(uint32_t, const uint8_t, LivoxLidarEthernetPacket* data,
 	LivoxLidarCartesianHighRawPoint* pts = reinterpret_cast<LivoxLidarCartesianHighRawPoint*>(data->data);
 	laszip_F64 coords[3];
 	std::lock_guard<std::mutex> lk(writer_mutex);
+
         uint64_t ts = 0;
         std::memcpy(&ts, data->timestamp, sizeof(ts));
         const double gps_time = static_cast<double>(ts) * 1e-9;
@@ -58,6 +59,7 @@ void PointCloudCallback(uint32_t, const uint8_t, LivoxLidarEthernetPacket* data,
                            << gps_time << ',' << 0 << ','
                            << static_cast<int>(pts[i].tag) << ',' << 0 << '\n';
         }
+
 	frame_done = true;
 	running = false;
 }

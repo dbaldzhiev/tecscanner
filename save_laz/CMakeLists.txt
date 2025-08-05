@@ -4,31 +4,39 @@ set(CMAKE_CXX_STANDARD 17)
 
 add_executable(save_laz save_laz.cpp)
 
-# --- Livox SDK ---
-target_include_directories(save_laz PRIVATE ../3rd/Livox-SDK2/include)
-find_library(LIVOX_SDK_LIB livox_lidar_sdk PATHS ../3rd/Livox-SDK2/build/sdk_core)
-if(LIVOX_SDK_LIB)
-  target_link_libraries(save_laz PRIVATE ${LIVOX_SDK_LIB})
-endif()
+# ---------------- 3rd-party: LASzip ----------------
+set(LASZIP_SRC "${CMAKE_SOURCE_DIR}/../3rd/LASzip")
+add_subdirectory("${LASZIP_SRC}" "${CMAKE_BINARY_DIR}/LASzip-build")
 
-# --- LASzip (set root, allow override) ---
-# Change this if LASzip lives elsewhere:
-set(LASZIP_ROOT "$ENV{HOME}/LAStools/LASzip" CACHE PATH "Path to LASzip root")
+# ---------------- 3rd-party: Livox SDK2 ----------------
+set(LIVOX_SDK_SRC "${CMAKE_SOURCE_DIR}/../3rd/Livox-SDK2")
+add_subdirectory("${LIVOX_SDK_SRC}" "${CMAKE_BINARY_DIR}/Livox-SDK2-build")
 
-# Headers: we need both the 'include' (where laszip_api.h is) and 'src' (for laszip_common.h)
-target_include_directories(save_laz PRIVATE
-  "${LASZIP_ROOT}/include"
-  "${LASZIP_ROOT}/src"
-)
-
-# Library (built locally, not system-wide)
-set(LASZIP_LIBRARY "${LASZIP_ROOT}/build/src/liblaszip.a")
-if(EXISTS "${LASZIP_LIBRARY}")
-  target_link_libraries(save_laz PRIVATE "${LASZIP_LIBRARY}")
+# If these targets exist, they already carry proper include paths
+# (matching the example you sent which links laszip + livox static)
+if(TARGET laszip)
+  target_link_libraries(save_laz PRIVATE laszip)
+elseif(TARGET LASzip)
+  target_link_libraries(save_laz PRIVATE LASzip)
 else()
-  message(WARNING "LASzip library not found at ${LASZIP_LIBRARY}. Build it with: 
-    cd ${LASZIP_ROOT} && mkdir -p build && cd build && cmake .. && make -j")
+  message(FATAL_ERROR "LASzip target not found after add_subdirectory()")
 endif()
 
-# Threads
-target_link_libraries(save_laz PRIVATE pthread)
+if(TARGET livox_lidar_sdk_static)
+  target_link_libraries(save_laz PRIVATE livox_lidar_sdk_static)
+elseif(TARGET livox_lidar_sdk)
+  target_link_libraries(save_laz PRIVATE livox_lidar_sdk)
+else()
+  message(FATAL_ERROR "Livox SDK target not found after add_subdirectory()")
+endif()
+
+# Threads + atomic (often needed on Linux/ARM)
+find_package(Threads REQUIRED)
+target_link_libraries(save_laz PRIVATE Threads::Threads atomic)
+
+# Optional: RPATH so the built binary can find Livox .so from build tree (if using shared)
+# get_target_property(_LIVOX_LIB livox_lidar_sdk LOCATION)
+# if(_LIVOX_LIB)
+#   get_filename_component(_LIVOX_DIR "${_LIVOX_LIB}" DIRECTORY)
+#   set_target_properties(save_laz PROPERTIES BUILD_RPATH "${_LIVOX_DIR}" INSTALL_RPATH "${_LIVOX_DIR}")
+# endif()
