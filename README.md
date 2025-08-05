@@ -33,7 +33,7 @@ sudo systemctl restart dphys-swapfile
 
 ```bash
 sudo apt update
-sudo apt install -y git build-essential cmake python3-venv python3-dev usbmount
+sudo apt install -y git build-essential cmake python3-venv python3-dev usbmount network-manager
 ```
 
 ### 4. Build Livox‑SDK2
@@ -88,12 +88,13 @@ Drives will appear under `/media/usb0`, which the app monitors.
 ### 9. Assign static IP to `eth0`
 
 ```bash
-sudo tee -a /etc/dhcpcd.conf <<'EOF'
-interface eth0
-static ip_address=192.168.6.1/24
-EOF
-sudo systemctl restart dhcpcd
+sudo nmcli con mod "Wired connection 1" ipv4.method manual ipv4.addresses 192.168.6.1/24
+sudo nmcli con mod "Wired connection 1" ipv4.gateway ""
+sudo nmcli con mod "Wired connection 1" ipv4.dns ""
+sudo nmcli con up "Wired connection 1"
 ```
+
+No reboot is required; the address is applied immediately.
 
 ### 10. Run the web app
 
