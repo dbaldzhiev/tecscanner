@@ -33,7 +33,7 @@ sudo systemctl restart dphys-swapfile
 
 ```bash
 sudo apt update
-sudo apt install -y git build-essential cmake python3-venv python3-dev usbmount network-manager
+sudo apt install -y git build-essential cmake python3-venv python3-dev network-manager
 ```
 
 ### 4. Build Livox‑SDK2
@@ -79,8 +79,12 @@ pip install Flask
 
 ### 8. Enable USB auto‑mount
 
+Install the provided udev rule and helper script:
+
 ```bash
-sudo apt install -y usbmount
+sudo install -m 0755 scripts/usb-automount.sh /usr/local/sbin/usb-automount.sh
+sudo install -m 0644 scripts/99-usb-automount.rules /etc/udev/rules.d/
+sudo udevadm control --reload-rules
 ```
 
 Drives will appear under `/media/usb0`, which the app monitors.
