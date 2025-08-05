@@ -16,7 +16,7 @@ fi
 
 echo "Installing system packages..."
 sudo apt update
-sudo apt install -y git build-essential cmake python3-venv python3-dev usbmount
+sudo apt install -y git build-essential cmake python3-venv python3-dev usbmount network-manager
 
 echo "Building Livox-SDK2..."
 cmake -S "$PROJECT_ROOT/3rd/Livox-SDK2" -B "$PROJECT_ROOT/3rd/Livox-SDK2/build"
@@ -41,14 +41,10 @@ source "$PROJECT_ROOT/.venv/bin/activate"
 pip install --upgrade pip
 pip install Flask
 
-echo "Configuring static IP 192.168.6.1 on eth0..."
-if ! grep -q 'tecscanner-static-ip' /etc/dhcpcd.conf 2>/dev/null; then
-  sudo tee -a /etc/dhcpcd.conf >/dev/null <<'EOF'
-# tecscanner-static-ip
-interface eth0
-static ip_address=192.168.6.1/24
-EOF
-  sudo systemctl restart dhcpcd || true
-fi
+echo "Configuring static IP 192.168.6.1 on eth0 via NetworkManager..."
+sudo nmcli con mod "Wired connection 1" ipv4.method manual ipv4.addresses 192.168.6.1/24
+sudo nmcli con mod "Wired connection 1" ipv4.gateway ""
+sudo nmcli con mod "Wired connection 1" ipv4.dns ""
+sudo nmcli con up "Wired connection 1"
 
 echo "Installation complete."
