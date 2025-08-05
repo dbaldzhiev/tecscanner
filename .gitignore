@@ -1,4 +1,5 @@
 .vscode/
+.venv
 .idea/
 cmake-*/
 build/
@@ -7,4 +8,4 @@ BUILD/
 BUILD*/
 venv/
 webapp/__pycache__/
-/3rd/LASzip/*
+/3rd/LASzip/build/
