@@ -1,126 +1,114 @@
-# Remote Mandeye Controller for HDMapping
+# Tecscanner
 
-This repository provides a lightweight web application for remotely
-controlling a Livox MID360 LiDAR. It is inspired by and compatible with
-[mandeye_controller](https://github.com/JanuszBedkowski/mandeye_controller)
-and [HDMapping](https://github.com/MapsHD/HDMapping). The web interface
-exposes controls to start and stop recordings and displays a list of
-previous recordings. No physical buttons or switches are required; all
-interaction happens through the browser.
+Tecscanner provides a web interface for controlling a Livox MID360 LiDAR and recording frames directly to a USB drive. The project targets Raspberry Pi 4 (64‑bit, Debian Bookworm headless).
 
-## Features
-- Start a new LiDAR recording.
-- Stop the current recording.
-- View status and a history of recorded files.
-- Recordings are saved to an attached USB drive and the UI warns if no drive is present.
-- Live status warnings when no LiDAR is detected or no data is streaming.
+## Quick Install
 
-Recordings are written to a USB flash drive that is expected to be
-automounted by the operating system. Metadata is tracked in
-`recordings/recordings.json` on that drive. The
-`RecordingManager` launches the Livox SDK recorder (similar to the
-`save_laz` utility from
-[`mandeye_controller`](https://github.com/JanuszBedkowski/mandeye_controller))
-to capture real MID360 data. For every frame the recorder writes both a
-compressed `.laz` file and a companion `.csv` export in the session
-directory.
-
-## Installation
-A convenience script is available to install dependencies and build native
-components automatically:
+Execute the script to build all native components, set up Python, configure USB automounting and assign a static IP to `eth0`:
 
 ```bash
 bash scripts/install.sh
 ```
 
-Alternatively, follow the manual steps below.
+## Manual Installation
 
-1. Install required system packages:
-   ```bash
-   sudo apt-get install build-essential cmake python3-dev python3-venv
-   ```
-2. Install LASzip (required by `save_laz`):
-   ```bash
-   git clone https://github.com/LAStools/LAStools.git
-   cd LAStools
-   mkdir build
-   cd build
-   cmake -DCMAKE_BUILD_TYPE=Release ..
-   cmake --build .
-   sudo mkdir -p /usr/local/bin
-   for f in ../bin64/*; do sudo ln -sf "$(readlink -e "$f")" /usr/local/bin/$(basename "${f%64}"); done
-   cd ../../
-   ```
-3. Clone the repository:
-   ```bash
-   git clone https://github.com/<your-username>/tecscanner.git
-   cd tecscanner
-   ```
-4. (Optional) create and activate a virtual environment:
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
-   ```
-5. Install Python dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-6. Build the Livox recording utility:
-   - The repository includes a minimal `save_laz` program under
-     `save_laz/` which streams MID360 data directly to `.laz` files (and
-     simultaneously produces `.csv` versions) using
-     [LASzip](https://laszip.org/).
-   - Build it with CMake:
-     ```bash
-     cmake -S save_laz -B save_laz/build
-     cmake --build save_laz/build
-     ```
-   - Make sure the resulting `save_laz` binary is on your `PATH` or set the
-     `LIVOX_RECORD_CMD` environment variable to point to it so the web
-     application can invoke it.
-7. Configure the Livox MID360:
-   - Connect the LiDAR and host via Ethernet.
-   - Assign the host interface a static IP such as `192.168.1.5`.
-   - Ensure the MID360 is reachable on the same subnet (the factory default is
-     typically `192.168.1.10`).
-   - Update the provided `mid360_config.json` with the host IP and desired
-     ports (defaults mirror the Livox SDK samples using ports 56100–56501).
-     Place this file next to the `save_laz` binary or set `LIVOX_SDK_CONFIG`
-     to its location.
-8. (Optional) specify where to look for removable storage:
-   - By default the application searches `/media` and `/run/media` for a mounted
-     USB drive. Set the `LIVOX_MOUNT_ROOTS` environment variable to a
-     colon-separated list of paths to check additional locations.
-     ```bash
-     export LIVOX_MOUNT_ROOTS=/media:/mnt/usb
-     ```
+The steps below mirror the script and can be copied individually.
 
-## Recording Log Retention
-The `recordings.json` file on the USB drive stores metadata for recent
-recordings. By default only the most recent 100 entries are retained. Set the
-`RECORDINGS_LOG_LIMIT` environment variable to change this limit. If
-`RECORDINGS_LOG_ARCHIVE` is set to a truthy value (e.g. `1`), entries beyond
-the limit are appended to `recordings_archive.json` in the same directory.
+### 1. Clone the repository
 
-## Running
-1. Start the Livox recorder and web server:
-   ```bash
-   flask --app webapp run --host=0.0.0.0
-   ```
-2. Open a browser at [http://localhost:5000](http://localhost:5000) or use
-   the host's IP address if accessing from another machine to control the
-   scanner.
+```bash
+git clone https://github.com/dbaldzhiev/tecscanner.git
+cd tecscanner
+git submodule update --init --recursive
+```
 
-To have the web application start automatically on boot, run
-`scripts/setup_service.sh`. The script creates and enables a `systemd`
-service that launches the Flask application using this repository's virtual
-environment.
+### 2. Expand swap to 2 GB
+
+```bash
+sudo sed -i 's/^CONF_SWAPSIZE=.*/CONF_SWAPSIZE=2048/' /etc/dphys-swapfile
+sudo systemctl restart dphys-swapfile
+```
+
+### 3. Install required packages
+
+```bash
+sudo apt update
+sudo apt install -y git build-essential cmake python3-venv python3-dev usbmount
+```
+
+### 4. Build Livox‑SDK2
+
+```bash
+cd 3rd/Livox-SDK2
+mkdir -p build && cd build
+cmake ..
+make -j$(nproc)
+sudo make install
+cd ../../..
+```
+
+### 5. Build LASzip
+
+```bash
+cd 3rd/LASzip
+mkdir -p build && cd build
+cmake ..
+make -j$(nproc)
+sudo make install
+cd ../../..
+```
+
+### 6. Compile `save_laz`
+
+```bash
+cd save_laz
+cmake -S . -B build
+cmake --build build --config Release
+sudo install -m 0755 build/save_laz /usr/local/bin/save_laz
+cd ..
+```
+
+### 7. Set up Python and Flask
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install Flask
+```
+
+### 8. Enable USB auto‑mount
+
+```bash
+sudo apt install -y usbmount
+```
+
+Drives will appear under `/media/usb0`, which the app monitors.
+
+### 9. Assign static IP to `eth0`
+
+```bash
+sudo tee -a /etc/dhcpcd.conf <<'EOF'
+interface eth0
+static ip_address=192.168.6.1/24
+EOF
+sudo systemctl restart dhcpcd
+```
+
+### 10. Run the web app
+
+```bash
+source .venv/bin/activate
+flask --app webapp run --host=0.0.0.0
+```
 
 ## API Endpoints
-- `POST /start` – begin recording.
-- `POST /stop` – end the current recording.
-- `GET /status` – retrieve JSON describing the current state.
-- `GET /recordings` – list metadata for previous recordings.
+
+- `POST /start` – begin recording
+- `POST /stop` – end the current recording
+- `GET /status` – current status in JSON
+- `GET /recordings` – list previous sessions
 
 ## License
-See [LICENSE](LICENSE) for license information.
+
+See [LICENSE](LICENSE) for details.
