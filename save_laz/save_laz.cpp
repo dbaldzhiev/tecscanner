@@ -52,8 +52,10 @@ void PointCloudCallback(uint32_t, const uint8_t, LivoxLidarEthernetPacket* data,
 		coords[2] = 0.001 * pts[i].z;
 		laszip_set_coordinates(writer, coords);
 		laszip_write_point(writer);
-		csv_writer << coords[0] << ',' << coords[1] << ',' << coords[2] << ',' << static_cast<int>(pts[i].reflectivity) << ','
-				   << static_cast<double>(ts) * 1e-9 << ',' << 0 << ',' << static_cast<int>(pts[i].tag) << ',' << 0 << '\n';
+                csv_writer << coords[0] << ',' << coords[1] << ',' << coords[2] << ','
+                           << static_cast<int>(pts[i].reflectivity) << ','
+                           << static_cast<double>(ts) * 1e-9 << ',' << 0 << ','
+                           << static_cast<int>(pts[i].tag) << ',' << 0 << '\n';
 	}
 	frame_done = true;
 	running = false;
