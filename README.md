@@ -35,25 +35,37 @@ bash scripts/install.sh
 
 Alternatively, follow the manual steps below.
 
-1. Install required system packages (including the LASzip development library):
+1. Install required system packages:
    ```bash
-   sudo apt-get install build-essential cmake python3-dev python3-venv liblaszip-dev
+   sudo apt-get install build-essential cmake python3-dev python3-venv
    ```
-2. Clone the repository:
+2. Install LASzip (required by `save_laz`):
+   ```bash
+   git clone https://github.com/LAStools/LAStools.git
+   cd LAStools
+   mkdir build
+   cd build
+   cmake -DCMAKE_BUILD_TYPE=Release ..
+   cmake --build .
+   sudo mkdir -p /usr/local/bin
+   for f in ../bin64/*; do sudo ln -sf "$(readlink -e "$f")" /usr/local/bin/$(basename "${f%64}"); done
+   cd ../../
+   ```
+3. Clone the repository:
    ```bash
    git clone https://github.com/<your-username>/tecscanner.git
    cd tecscanner
    ```
-3. (Optional) create and activate a virtual environment:
+4. (Optional) create and activate a virtual environment:
    ```bash
    python3 -m venv .venv
    source .venv/bin/activate
    ```
-4. Install Python dependencies:
+5. Install Python dependencies:
    ```bash
    pip install -r requirements.txt
    ```
-5. Build the Livox recording utility:
+6. Build the Livox recording utility:
    - The repository includes a minimal `save_laz` program under
      `save_laz/` which streams MID360 data directly to `.laz` files (and
      simultaneously produces `.csv` versions) using
@@ -66,7 +78,7 @@ Alternatively, follow the manual steps below.
    - Make sure the resulting `save_laz` binary is on your `PATH` or set the
      `LIVOX_RECORD_CMD` environment variable to point to it so the web
      application can invoke it.
-6. Configure the Livox MID360:
+7. Configure the Livox MID360:
    - Connect the LiDAR and host via Ethernet.
    - Assign the host interface a static IP such as `192.168.1.5`.
    - Ensure the MID360 is reachable on the same subnet (the factory default is
@@ -75,7 +87,7 @@ Alternatively, follow the manual steps below.
      ports (defaults mirror the Livox SDK samples using ports 56100–56501).
      Place this file next to the `save_laz` binary or set `LIVOX_SDK_CONFIG`
      to its location.
-7. (Optional) specify where to look for removable storage:
+8. (Optional) specify where to look for removable storage:
    - By default the application searches `/media` and `/run/media` for a mounted
      USB drive. Set the `LIVOX_MOUNT_ROOTS` environment variable to a
      colon-separated list of paths to check additional locations.
