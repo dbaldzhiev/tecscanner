@@ -5,7 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
-#include <laszip_api.h>
+#include <laszip/laszip_api.h>
 #include <livox_lidar_api.h>
 #include <livox_lidar_def.h>
 #include <mutex>
