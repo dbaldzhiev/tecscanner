@@ -148,8 +148,14 @@ int main(int argc, char** argv)
 	laszip_POINTER tmp_writer = nullptr;
 	if(laszip_create(&tmp_writer))
 	{
-		std::cerr << "Failed to create laszip writer" << std::endl;
+		const char* msg = nullptr;
+		laszip_get_error_message(tmp_writer, &msg);
+		std::cerr << "Failed to create laszip writer: " << (msg ? msg : "unknown error") << std::endl;
 		LivoxLidarSdkUninit();
+		if(tmp_writer)
+		{
+			laszip_destroy(tmp_writer);
+		}
 		return 1;
 	}
 	writer = tmp_writer;
