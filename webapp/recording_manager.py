@@ -97,32 +97,59 @@ class RecordingManager:
         """Locate the first writable USB mount created by ``usb-automount.sh``.
 
         The install script mounts removable drives under ``<root>/usbN`` where
-        ``root`` defaults to ``/media``.  This helper scans ``/proc/mounts`` and
-        returns the lowest-numbered mount point that matches this pattern and is
-        writable.  The mount roots can be customised via the ``MOUNT_ROOT``
-        (from the install script) or ``LIVOX_MOUNT_ROOTS`` environment
-        variables.
+        ``root`` defaults to ``/media``.  This helper probes the current mounts
+        using the ``mount`` and ``lsblk`` utilities and falls back to scanning
+        the filesystem directly.  The mount roots can be customised via the
+        ``MOUNT_ROOT`` (from the install script) or ``LIVOX_MOUNT_ROOTS``
+        environment variables.
         """
-        candidates: List[str] = []
+
+        prefixes = [f"{root}/usb" for root in self.mount_roots]
+
+        # Probe with ``mount`` first
         try:
-            with open("/proc/mounts") as f:
-                for line in f:
-                    parts = line.split()
-                    if len(parts) < 2:
-                        continue
-                    mount_point = parts[1]
-                    for root in self.mount_roots:
-                        prefix = f"{root}/usb"
-                        if mount_point.startswith(prefix) and re.match(
-                            rf"^{re.escape(root)}/usb\d+$", mount_point
-                        ):
-                            if os.access(mount_point, os.W_OK):
-                                candidates.append(mount_point)
+            result = subprocess.run(["mount"], capture_output=True, text=True, check=False)
+            for line in result.stdout.splitlines():
+                parts = line.split()
+                if len(parts) >= 3:
+                    mp = parts[2]
+                    if any(mp.startswith(p) for p in prefixes) and os.access(mp, os.W_OK):
+                        return Path(mp)
         except OSError:
-            return None
-        if candidates:
-            candidates.sort(key=lambda p: int(re.search(r"usb(\d+)$", p).group(1)))
-            return Path(candidates[0])
+            pass
+
+        # Fallback to ``lsblk`` which lists mount points per block device
+        try:
+            result = subprocess.run(
+                ["lsblk", "-nr", "-o", "MOUNTPOINT"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            for mp in result.stdout.splitlines():
+                if any(mp.startswith(p) for p in prefixes) and os.access(mp, os.W_OK):
+                    return Path(mp)
+        except OSError:
+            pass
+
+        # Final fallback: scan the filesystem directly
+        for root in self.mount_roots:
+            base = Path(root)
+            try:
+                candidates = [
+                    p
+                    for p in base.glob("usb*")
+                    if os.path.ismount(p) and os.access(p, os.W_OK)
+                ]
+            except OSError:
+                continue
+            if candidates:
+                candidates.sort(
+                    key=lambda p: int(re.search(r"usb(\d+)$", p.name).group(1))
+                    if re.search(r"usb(\d+)$", p.name)
+                    else float("inf"),
+                )
+                return candidates[0]
         return None
 
     def _ensure_storage(self) -> bool:
