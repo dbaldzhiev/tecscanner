@@ -34,4 +34,9 @@ sudo systemctl restart systemd-udevd
 echo "Updating supported filesystems in usbmount config..."
 sudo sed -ri 's/^(FILESYSTEMS=).*/\1"vfat ext2 ext3 ext4 hfsplus ntfs exfat fuseblk"/' /etc/usbmount/usbmount.conf
 
+echo "Setting USB mount permissions for user access..."
+USER_UID=$(id -u)
+USER_GID=$(id -g)
+sudo sed -ri "s|^(MOUNTOPTIONS=).*|\\1\"sync,noexec,nosuid,nodev,uid=${USER_UID},gid=${USER_GID},dmask=027,fmask=137\"|" /etc/usbmount/usbmount.conf
+
 echo "Done. Please reboot for changes to fully apply."
