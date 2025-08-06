@@ -8,6 +8,7 @@
       :root {
         --primary: #007bff;
         --danger: #dc3545;
+        --success: #28a745;
         --bg: #f4f4f4;
       }
       body {
@@ -80,6 +81,22 @@
       ul {
         padding-left: 1rem;
       }
+      #sysbar {
+        display:flex;
+        flex-wrap:wrap;
+        justify-content:center;
+        background:#eee;
+        gap:.25rem;
+        font-size:.75rem;
+        padding:.25rem;
+      }
+      #sysbar span {
+        padding:0 .25rem;
+        border-radius:3px;
+      }
+      .ok { background: var(--success); color:#fff; }
+      .bad { background: var(--danger); color:#fff; }
+      .warn { background: #ffc107; color:#000; }
       @media (min-width: 600px) {
         .container { max-width: 700px; }
         .status-grid { grid-template-columns: repeat(2, 1fr); }
@@ -88,6 +105,17 @@
     </style>
   </head>
   <body>
+    <div id="sysbar">
+      <span id="eth0_ip" class="{{ 'ok' if status.eth0_ip else 'bad' }}">{{ status.eth0_ip or 'eth0 ?' }}</span>
+      <span id="lidar_ip" class="{{ 'ok' if status.lidar_detected else 'bad' }}">{{ status.lidar_ip or 'lidar ?' }}</span>
+      <span id="livox_driver" class="{{ 'ok' if status.livox_driver else 'bad' }}">driver</span>
+      <span id="save_laz" class="{{ 'ok' if status.save_laz else 'bad' }}">save_laz</span>
+      <span id="laszip" class="{{ 'ok' if status.laszip else 'bad' }}">laszip</span>
+      <span id="flash" class="{{ 'ok' if status.storage_present else 'bad' }}">storage</span>
+      <span id="free_space" class="{{ 'ok' if status.free_space else 'bad' }}">
+        {% if status.free_space %}{{ (status.free_space/(1024*1024))|round(1) }} MB{% else %}?{% endif %}
+      </span>
+    </div>
     <main class="container">
       <h1>Remote Mandeye Controller for HDMapping</h1>
       <div id="messages" role="status" aria-live="polite"></div>
@@ -167,6 +195,12 @@
         msg.style.color = success ? 'green' : 'red';
       }
 
+      function setIndicator(id, text, ok){
+        const el = document.getElementById(id);
+        el.textContent = text;
+        el.className = ok ? 'ok' : 'bad';
+      }
+
       function formatDuration(seconds){
         const h = Math.floor(seconds/3600).toString().padStart(2, '0');
         const m = Math.floor((seconds % 3600)/60).toString().padStart(2, '0');
@@ -194,6 +228,21 @@
             const stopBtn = document.getElementById('stop_btn');
             startBtn.disabled = statusData.recording;
             stopBtn.disabled = !statusData.recording;
+            setIndicator('eth0_ip', statusData.eth0_ip || 'eth0 ?', !!statusData.eth0_ip);
+            setIndicator('lidar_ip', statusData.lidar_ip || 'lidar ?', statusData.lidar_detected);
+            setIndicator('livox_driver', 'driver', statusData.livox_driver);
+            setIndicator('save_laz', 'save_laz', statusData.save_laz);
+            setIndicator('laszip', 'laszip', statusData.laszip);
+            setIndicator('flash', 'storage', statusData.storage_present);
+            const freeEl = document.getElementById('free_space');
+            if(statusData.free_space != null){
+              freeEl.textContent = formatSize(statusData.free_space) + ' free';
+              const gb = statusData.free_space/(1024*1024*1024);
+              freeEl.className = gb < 1 ? 'warn' : 'ok';
+            }else{
+              freeEl.textContent = '?';
+              freeEl.className = 'bad';
+            }
             const lidarEl = document.getElementById('lidar_status');
             if(statusData.lidar_detected){
               lidarEl.innerHTML = '<span aria-hidden="true">✅</span> connected';

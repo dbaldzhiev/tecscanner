@@ -142,6 +142,17 @@ class RecordingManager:
                 self.archive_file = None
         return self.output_dir is not None
 
+    def _get_ip_address(self, iface: str) -> Optional[str]:
+        """Return the IPv4 address for the given network interface."""
+        try:
+            out = subprocess.check_output(
+                ["ip", "-4", "addr", "show", iface], text=True
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        m = re.search(r"inet (\d+\.\d+\.\d+\.\d+)", out)
+        return m.group(1) if m else None
+
     def _load_log(self):
         if not self.log_file or not self.log_file.exists():
             return []
@@ -396,6 +407,17 @@ class RecordingManager:
                 now = datetime.utcnow()
                 if (now - self._last_size_time).total_seconds() < 2:
                     lidar_streaming = True
+            ip_eth0 = self._get_ip_address("eth0")
+            lidar_ip = os.getenv("LIDAR_IP")
+            livox_driver = shutil.which("livox_ros_driver") is not None
+            save_laz_ok = shutil.which("save_laz") is not None
+            laszip_ok = shutil.which("laszip") is not None
+            free_space = None
+            if self.usb_mount:
+                try:
+                    free_space = shutil.disk_usage(self.usb_mount).free
+                except OSError:
+                    free_space = None
         return {
             "recording": self._thread is not None,
             "current_file": self.current_file.name if self.current_file else None,
@@ -404,8 +426,14 @@ class RecordingManager:
             "frames_recorded": self.frame_counter,
             "current_size": current_size,
             "storage_present": storage,
+            "free_space": free_space,
             "lidar_detected": lidar_detected,
             "lidar_streaming": lidar_streaming,
+            "eth0_ip": ip_eth0,
+            "lidar_ip": lidar_ip,
+            "livox_driver": livox_driver,
+            "save_laz": save_laz_ok,
+            "laszip": laszip_ok,
             "log_error": self._log_error,
             "archive_error": self._archive_error,
         }
