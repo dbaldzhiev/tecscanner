@@ -12,14 +12,18 @@ find_path(LASZIP_API_INCLUDE_DIR
           PATHS
             ${LASZIP_ROOT}/dll
             /usr/include
-            /usr/local/include)
+            /usr/include/laszip
+            /usr/local/include
+            /usr/local/include/laszip)
 
 find_path(LASZIP_COMMON_INCLUDE_DIR
           NAMES laszip_common.h
           PATHS
             ${LASZIP_ROOT}/include/laszip
             /usr/include
-            /usr/local/include)
+            /usr/include/laszip
+            /usr/local/include
+            /usr/local/include/laszip)
 
 find_library(LASZIP_API_LIBRARY
              NAMES laszip_api
@@ -64,18 +68,25 @@ if(NOT LIVOX_SDK2_INCLUDE_DIR OR NOT LIVOX_SDK2_LIBRARY)
   message(FATAL_ERROR "Livox SDK2 not found")
 endif()
 
-# --- Executable ---
-add_executable(save_laz save_laz.cpp)
+# --- Library and executable ---
+add_library(save_laz_utils
+  save_laz.cpp
+  livox_collector.cpp)
 
-target_include_directories(save_laz PRIVATE
+target_include_directories(save_laz_utils PUBLIC
   ${LASZIP_API_INCLUDE_DIR}
   ${LASZIP_COMMON_INCLUDE_DIR}
-  ${LIVOX_SDK2_INCLUDE_DIR})
+  ${LIVOX_SDK2_INCLUDE_DIR}
+  ${CMAKE_CURRENT_SOURCE_DIR})
 
-target_link_libraries(save_laz PRIVATE
+target_link_libraries(save_laz_utils PUBLIC
   ${LASZIP_API_LIBRARY}
   ${LASZIP_LIBRARY}
   ${LIVOX_SDK2_LIBRARY}
   pthread
   dl)
 
+add_executable(save_laz
+  main.cpp)
+
+target_link_libraries(save_laz PRIVATE save_laz_utils)

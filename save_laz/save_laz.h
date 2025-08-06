@@ -1,0 +1,27 @@
+#pragma once
+
+#include <cstdint>
+#include <string>
+#include <vector>
+
+struct Point
+{
+    double x;
+    double y;
+    double z;
+    std::uint8_t intensity;
+    std::uint8_t tag;
+    double gps_time;
+};
+
+struct LazStats
+{
+    std::size_t point_count;
+    double capture_duration;  // seconds
+    double write_duration;    // seconds
+    std::uint64_t file_size;  // bytes
+};
+
+LazStats saveLaz(const std::string& laz_file,
+                 const std::vector<Point>& points,
+                 double capture_duration);
