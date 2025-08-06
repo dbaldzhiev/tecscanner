@@ -43,11 +43,11 @@ else
   echo "Livox-SDK2 already built."
 fi
 
-if [ ! -f "$PROJECT_ROOT/3rd/LASzip/build/CMakeCache.txt" ]; then
+if [ ! -f "$PROJECT_ROOT/3rd/LASzip/CMakeCache.txt" ]; then
   echo "Building LASzip..."
-  cmake -S "$PROJECT_ROOT/3rd/LASzip" -B "$PROJECT_ROOT/3rd/LASzip/build"
-  cmake --build "$PROJECT_ROOT/3rd/LASzip/build" --config Release
-  sudo cmake --install "$PROJECT_ROOT/3rd/LASzip/build"
+  cd "$PROJECT_ROOT/3rd/LASzip" || exit 1
+  cmake -DCMAKE_BUILD_TYPE=Release CMakeLists.txt
+  cmake --build .
 else
   echo "LASzip already built."
 fi
