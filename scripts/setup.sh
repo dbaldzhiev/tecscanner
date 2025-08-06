@@ -1,7 +1,7 @@
 
 if [ "$usb_missing" = true ] || [ ! -f /usr/local/sbin/usb-automount.sh ] || [ ! -f /etc/udev/rules.d/99-usb-automount.rules ]; then
   echo "Installing USB auto-mount support..."
-  "$PROJECT_ROOT/scripts/install_usbmount.sh"
+  ./"$PROJECT_ROOT/scripts/install_usbmount.sh"
 else
   echo "USB auto-mount support already installed."
 fi
@@ -21,7 +21,7 @@ sudo nmcli con up "$CON_NAME"
 
 if [ ! -f /etc/systemd/system/tecscanner.service ]; then
   echo "Setting up Tecscanner systemd service..."
-  "$PROJECT_ROOT/scripts/setup_service.sh"
+  ./"$PROJECT_ROOT/scripts/setup_service.sh"
 else
   echo "Tecscanner systemd service already installed."
 fi
