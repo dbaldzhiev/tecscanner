@@ -4,6 +4,7 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <string>
 #include <laszip/laszip_api.h>
 #include <livox_lidar_api.h>
 #include <livox_lidar_def.h>
@@ -80,13 +81,34 @@ int main(int argc, char** argv)
 		std::cerr << "Usage: " << argv[0] << " output.laz" << std::endl;
 		return 1;
 	}
-	if(std::strcmp(argv[1], "--check") == 0)
-	{
-		bool ok = LivoxLidarSdkInit(nullptr);
-		if(ok)
-			LivoxLidarSdkUninit();
-		return ok ? 0 : 1;
-	}
+        if(std::strcmp(argv[1], "--check") == 0)
+        {
+                std::string cfg = "mid360_config.json";
+                if(const char* env = std::getenv("LIVOX_SDK_CONFIG"))
+                {
+                        cfg = env;
+                }
+                if(!LivoxLidarSdkInit(cfg.c_str()))
+                {
+                        return 1;
+                }
+                std::atomic_bool lidar_found(false);
+                auto cb = [](const uint32_t, const LivoxLidarInfo* info, void* client_data)
+                {
+                        if(info)
+                        {
+                                *static_cast<std::atomic_bool*>(client_data) = true;
+                        }
+                };
+                SetLivoxLidarInfoChangeCallback(cb, &lidar_found);
+                LivoxLidarSdkStart();
+                for(int i = 0; i < 50 && !lidar_found; ++i)
+                {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                }
+                LivoxLidarSdkUninit();
+                return lidar_found ? 0 : 1;
+        }
 	std::string output = argv[1];
 	std::string cfg = "mid360_config.json";
 	if(const char* env = std::getenv("LIVOX_SDK_CONFIG"))
