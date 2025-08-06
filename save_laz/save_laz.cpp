@@ -256,12 +256,12 @@ int main(int argc, char** argv)
 	};
 
 	laszip_POINTER tmp_writer = nullptr;
-	if(laszip_create(&tmp_writer))
-	{
-		const char* msg = nullptr;
-		laszip_get_error(tmp_writer, &msg);
-		std::cerr << "Failed to create laszip writer: " << (msg ? msg : "unknown error") << std::endl;
-		LivoxLidarSdkUninit();
+        if(laszip_create(&tmp_writer))
+        {
+                laszip_CHAR* msg = nullptr;
+                laszip_get_error(tmp_writer, &msg);
+                std::cerr << "Failed to create laszip writer: " << (msg ? msg : "unknown error") << std::endl;
+				LivoxLidarSdkUninit();
 		if(tmp_writer)
 		{
 			laszip_destroy(tmp_writer);
