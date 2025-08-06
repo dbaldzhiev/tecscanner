@@ -1,4 +1,0 @@
-# udev rules for automatically mounting USB storage devices
-
-ACTION=="add", SUBSYSTEM=="block", KERNEL=="sd*[0-9]", ENV{ID_FS_TYPE}!="", RUN+="/usr/local/sbin/usb-automount.sh %k"
-ACTION=="remove", SUBSYSTEM=="block", KERNEL=="sd*[0-9]", RUN+="/usr/local/sbin/usb-automount.sh %k"
