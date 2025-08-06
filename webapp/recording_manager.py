@@ -187,13 +187,14 @@ class RecordingManager:
         if not self.record_cmd:
             return False
         try:
-            res = subprocess.run(
+            subprocess.run(
                 [self.record_cmd, "--check"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 timeout=5,
+                check=True,
             )
-            return res.returncode == 0
+            return True
         except (OSError, subprocess.SubprocessError):
             return False
 
