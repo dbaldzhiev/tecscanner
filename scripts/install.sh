@@ -71,26 +71,33 @@ if ! pip show Flask >/dev/null 2>&1; then
   pip install Flask
 fi
 
-if [ ! -f /etc/udev/rules.d/99-usb-automount.rules ]; then
-  echo "Installing USB automount udev rules..."
-  sudo install -m 0755 "$PROJECT_ROOT/scripts/usb-automount.sh" /usr/local/sbin/usb-automount.sh
-  sudo install -m 0644 "$PROJECT_ROOT/scripts/99-usb-automount.rules" /etc/udev/rules.d/99-usb-automount.rules
-  sudo udevadm control --reload-rules
+USB_PACKAGES=(exfatprogs ntfs-3g)
+usb_missing=false
+for pkg in "${USB_PACKAGES[@]}"; do
+  if ! dpkg -s "$pkg" >/dev/null 2>&1; then
+    usb_missing=true
+    break
+  fi
+done
+
+if [ "$usb_missing" = true ] || [ ! -f /usr/local/sbin/usb-automount.sh ] || [ ! -f /etc/udev/rules.d/99-usb-automount.rules ]; then
+  echo "Installing USB auto-mount support..."
+  "$PROJECT_ROOT/scripts/install_usbmount.sh"
 else
-  echo "USB automount udev rules already installed."
+  echo "USB auto-mount support already installed."
 fi
 
-NM_CON="tecscanner-eth0"
-CURRENT_IP=$(nmcli -g ipv4.addresses con show "$NM_CON" 2>/dev/null || true)
-if [ -z "$CURRENT_IP" ]; then
-  echo "Creating NetworkManager connection $NM_CON with static IP 192.168.6.1..."
-  sudo nmcli con add type ethernet ifname eth0 con-name "$NM_CON" \
-    ipv4.method manual ipv4.addresses 192.168.6.1/24 ipv4.gateway "" ipv4.dns "" autoconnect yes
-elif [[ "$CURRENT_IP" != "192.168.6.1/24" ]]; then
-  echo "Updating static IP 192.168.6.1 on $NM_CON..."
-  sudo nmcli con mod "$NM_CON" ipv4.method manual ipv4.addresses 192.168.6.1/24 ipv4.gateway "" ipv4.dns ""
-else
-  echo "Static IP already configured."
+CON_NAME="Wired connection 1"
+if ! nmcli -g NAME con show | grep -Fx "$CON_NAME" >/dev/null 2>&1; then
+  echo "Creating NetworkManager connection $CON_NAME..."
+  sudo nmcli con add type ethernet ifname eth0 con-name "$CON_NAME"
 fi
+echo "Configuring static IP 192.168.6.1 on $CON_NAME..."
+sudo nmcli con mod "$CON_NAME" ipv4.method manual ipv4.addresses 192.168.6.1/24
+sudo nmcli con mod "$CON_NAME" ipv4.gateway ""
+sudo nmcli con mod "$CON_NAME" ipv4.dns ""
+sudo nmcli con mod "$CON_NAME" connection.autoconnect yes
+sudo nmcli con mod "$CON_NAME" connection.interface-name eth0
+sudo nmcli con up "$CON_NAME"
 
 echo "Installation complete."
