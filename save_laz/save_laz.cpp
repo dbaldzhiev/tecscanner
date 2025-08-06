@@ -4,11 +4,11 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
-#include <string>
-#include <laszip/laszip_api.h>
+#include <laszip_api.h>
 #include <livox_lidar_api.h>
 #include <livox_lidar_def.h>
 #include <mutex>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -40,26 +40,24 @@ void PointCloudCallback(uint32_t, const uint8_t, LivoxLidarEthernetPacket* data,
 	laszip_F64 coords[3];
 	std::lock_guard<std::mutex> lk(writer_mutex);
 
-        uint64_t ts = 0;
-        std::memcpy(&ts, data->timestamp, sizeof(ts));
-        const double gps_time = static_cast<double>(ts) * 1e-9;
-        for(uint32_t i = 0; i < data->dot_num; ++i)
-        {
-                laz_point->intensity = pts[i].reflectivity;
-                laz_point->gps_time = gps_time;
-                laz_point->user_data = 0;
-                laz_point->classification = pts[i].tag;
-                laz_point->point_source_ID = 0;
-                coords[0] = 0.001 * pts[i].x;
-                coords[1] = 0.001 * pts[i].y;
-                coords[2] = 0.001 * pts[i].z;
-                laszip_set_coordinates(writer, coords);
-                laszip_write_point(writer);
-                csv_writer << coords[0] << ',' << coords[1] << ',' << coords[2] << ','
-                           << static_cast<int>(pts[i].reflectivity) << ','
-                           << gps_time << ',' << 0 << ','
-                           << static_cast<int>(pts[i].tag) << ',' << 0 << '\n';
-        }
+	uint64_t ts = 0;
+	std::memcpy(&ts, data->timestamp, sizeof(ts));
+	const double gps_time = static_cast<double>(ts) * 1e-9;
+	for(uint32_t i = 0; i < data->dot_num; ++i)
+	{
+		laz_point->intensity = pts[i].reflectivity;
+		laz_point->gps_time = gps_time;
+		laz_point->user_data = 0;
+		laz_point->classification = pts[i].tag;
+		laz_point->point_source_ID = 0;
+		coords[0] = 0.001 * pts[i].x;
+		coords[1] = 0.001 * pts[i].y;
+		coords[2] = 0.001 * pts[i].z;
+		laszip_set_coordinates(writer, coords);
+		laszip_write_point(writer);
+		csv_writer << coords[0] << ',' << coords[1] << ',' << coords[2] << ',' << static_cast<int>(pts[i].reflectivity) << ',' << gps_time << ',' << 0
+				   << ',' << static_cast<int>(pts[i].tag) << ',' << 0 << '\n';
+	}
 
 	frame_done = true;
 	running = false;
@@ -81,34 +79,33 @@ int main(int argc, char** argv)
 		std::cerr << "Usage: " << argv[0] << " output.laz" << std::endl;
 		return 1;
 	}
-        if(std::strcmp(argv[1], "--check") == 0)
-        {
-                std::string cfg = "mid360_config.json";
-                if(const char* env = std::getenv("LIVOX_SDK_CONFIG"))
-                {
-                        cfg = env;
-                }
-                if(!LivoxLidarSdkInit(cfg.c_str()))
-                {
-                        return 1;
-                }
-                std::atomic_bool lidar_found(false);
-                auto cb = [](const uint32_t, const LivoxLidarInfo* info, void* client_data)
-                {
-                        if(info)
-                        {
-                                *static_cast<std::atomic_bool*>(client_data) = true;
-                        }
-                };
-                SetLivoxLidarInfoChangeCallback(cb, &lidar_found);
-                LivoxLidarSdkStart();
-                for(int i = 0; i < 50 && !lidar_found; ++i)
-                {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                }
-                LivoxLidarSdkUninit();
-                return lidar_found ? 0 : 1;
-        }
+	if(std::strcmp(argv[1], "--check") == 0)
+	{
+		std::string cfg = "mid360_config.json";
+		if(const char* env = std::getenv("LIVOX_SDK_CONFIG"))
+		{
+			cfg = env;
+		}
+		if(!LivoxLidarSdkInit(cfg.c_str()))
+		{
+			return 1;
+		}
+		std::atomic_bool lidar_found(false);
+		auto cb = [](const uint32_t, const LivoxLidarInfo* info, void* client_data) {
+			if(info)
+			{
+				*static_cast<std::atomic_bool*>(client_data) = true;
+			}
+		};
+		SetLivoxLidarInfoChangeCallback(cb, &lidar_found);
+		LivoxLidarSdkStart();
+		for(int i = 0; i < 50 && !lidar_found; ++i)
+		{
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		}
+		LivoxLidarSdkUninit();
+		return lidar_found ? 0 : 1;
+	}
 	std::string output = argv[1];
 	std::string cfg = "mid360_config.json";
 	if(const char* env = std::getenv("LIVOX_SDK_CONFIG"))
