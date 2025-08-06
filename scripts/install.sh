@@ -100,4 +100,11 @@ sudo nmcli con mod "$CON_NAME" connection.autoconnect yes
 sudo nmcli con mod "$CON_NAME" connection.interface-name eth0
 sudo nmcli con up "$CON_NAME"
 
+if [ ! -f /etc/systemd/system/tecscanner.service ]; then
+  echo "Setting up Tecscanner systemd service..."
+  "$PROJECT_ROOT/scripts/setup_service.sh"
+else
+  echo "Tecscanner systemd service already installed."
+fi
+
 echo "Installation complete."
