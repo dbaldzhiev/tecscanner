@@ -23,6 +23,7 @@ from datetime import datetime
 from pathlib import Path
 import logging
 import shutil
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -40,13 +41,17 @@ class RecordingManager:
 
     def __init__(self, mount_roots: Optional[List[str]] = None):
         if mount_roots is not None:
-            self.mount_roots = mount_roots
+            self.mount_roots = [r.rstrip("/") for r in mount_roots]
         else:
             env_roots = os.getenv("LIVOX_MOUNT_ROOTS")
             if env_roots:
-                self.mount_roots = [r for r in env_roots.split(os.pathsep) if r]
+                self.mount_roots = [r.rstrip("/") for r in env_roots.split(os.pathsep) if r]
             else:
-                self.mount_roots = ["/media", "/run/media"]
+                mr = os.getenv("MOUNT_ROOT")
+                if mr:
+                    self.mount_roots = [mr.rstrip("/")]
+                else:
+                    self.mount_roots = ["/media", "/run/media"]
         self.usb_mount: Optional[Path] = None
         self.output_dir: Optional[Path] = None
         self.log_file: Optional[Path] = None
@@ -89,6 +94,16 @@ class RecordingManager:
 
     # ---- internal helpers -------------------------------------------------
     def _find_usb_mount(self) -> Optional[Path]:
+        """Locate the first writable USB mount created by ``usb-automount.sh``.
+
+        The install script mounts removable drives under ``<root>/usbN`` where
+        ``root`` defaults to ``/media``.  This helper scans ``/proc/mounts`` and
+        returns the lowest-numbered mount point that matches this pattern and is
+        writable.  The mount roots can be customised via the ``MOUNT_ROOT``
+        (from the install script) or ``LIVOX_MOUNT_ROOTS`` environment
+        variables.
+        """
+        candidates: List[str] = []
         try:
             with open("/proc/mounts") as f:
                 for line in f:
@@ -96,11 +111,18 @@ class RecordingManager:
                     if len(parts) < 2:
                         continue
                     mount_point = parts[1]
-                    if any(mount_point.startswith(root) for root in self.mount_roots):
-                        if os.access(mount_point, os.W_OK):
-                            return Path(mount_point)
+                    for root in self.mount_roots:
+                        prefix = f"{root}/usb"
+                        if mount_point.startswith(prefix) and re.match(
+                            rf"^{re.escape(root)}/usb\d+$", mount_point
+                        ):
+                            if os.access(mount_point, os.W_OK):
+                                candidates.append(mount_point)
         except OSError:
-            pass
+            return None
+        if candidates:
+            candidates.sort(key=lambda p: int(re.search(r"usb(\d+)$", p).group(1)))
+            return Path(candidates[0])
         return None
 
     def _ensure_storage(self) -> bool:
