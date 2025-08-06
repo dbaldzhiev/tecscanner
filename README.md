@@ -87,7 +87,18 @@ sudo install -m 0644 scripts/99-usb-automount.rules /etc/udev/rules.d/
 sudo udevadm control --reload-rules
 ```
 
-Drives will appear under `/media/usb0`, which the app monitors.
+To verify the rule without reconnecting a drive, simulate an add event and
+inspect the logs:
+
+```bash
+sudo udevadm test --action=add /block/sdX1 2>&1 | grep usb-automount
+journalctl -t usb-automount
+```
+
+Replace `sdX1` with the block device you wish to test. Drives will appear
+under `/media/usb0` by default. Use the `MOUNT_ROOT` environment variable or
+pass a second argument in the udev rule to change the mount root, e.g.
+`RUN+="/usr/local/sbin/usb-automount.sh %k /mnt"`.
 
 ### 9. Assign static IP to `eth0`
 
