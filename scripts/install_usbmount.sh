@@ -3,7 +3,7 @@ set -e
 
 echo "Installing dependencies..."
 sudo apt update
-sudo apt install -y git debhelper build-essential exfat-fuse exfat-utils lockfile-progs
+sudo apt install -y git debhelper
 
 echo "Cloning usbmount repository..."
 cd /tmp
