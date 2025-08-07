@@ -110,7 +110,7 @@
       <span id="lidar_ip" class="{{ 'ok' if status.lidar_detected else 'bad' }}">{{ status.lidar_ip or 'lidar ?' }}</span>
       <span id="livox_driver" class="{{ 'ok' if status.livox_driver else 'bad' }}">driver</span>
       <span id="save_laz" class="{{ 'ok' if status.save_laz else 'bad' }}">save_laz</span>
-      <span id="laszip" class="{{ 'ok' if status.laszip else 'bad' }}">laszip</span>
+      <span id="laszip" class="{{ 'ok' if status.laszip else 'bad' }}">LASzip</span>
       <span id="flash" class="{{ 'ok' if status.storage_present else 'bad' }}">storage</span>
       <span id="free_space" class="{{ 'ok' if status.free_space else 'bad' }}">
         {% if status.free_space %}{{ (status.free_space/(1024*1024))|round(1) }} MB{% else %}?{% endif %}
@@ -232,7 +232,7 @@
             setIndicator('lidar_ip', statusData.lidar_ip || 'lidar ?', statusData.lidar_detected);
             setIndicator('livox_driver', 'driver', statusData.livox_driver);
             setIndicator('save_laz', 'save_laz', statusData.save_laz);
-            setIndicator('laszip', 'laszip', statusData.laszip);
+            setIndicator('laszip', 'LASzip', statusData.laszip);
             setIndicator('flash', 'storage', statusData.storage_present);
             const freeEl = document.getElementById('free_space');
             if(statusData.free_space != null){

@@ -438,7 +438,11 @@ class RecordingManager:
             lidar_ip = os.getenv("LIDAR_IP")
             livox_driver = shutil.which("livox_ros_driver") is not None
             save_laz_ok = shutil.which("save_laz") is not None
-            laszip_ok = shutil.which("laszip") is not None
+            laszip_lib_dir = Path(__file__).resolve().parent.parent / "3rd" / "LASzip" / "lib"
+            laszip_ok = (
+                (laszip_lib_dir / "liblaszip_api.so").exists()
+                and (laszip_lib_dir / "liblaszip.so").exists()
+            )
             free_space = None
             if self.usb_mount:
                 try:
