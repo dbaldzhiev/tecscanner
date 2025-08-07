@@ -445,7 +445,11 @@ class RecordingManager:
             ]
             livox_sdk2 = all(Path(p).exists() for p in sdk_files)
             save_laz_ok = shutil.which("save_laz") is not None
-            laszip_ok = shutil.which("laszip") is not None
+            laszip_lib_dir = Path(__file__).resolve().parent.parent / "3rd" / "LASzip" / "lib"
+            laszip_ok = (
+                (laszip_lib_dir / "liblaszip_api.so").exists()
+                and (laszip_lib_dir / "liblaszip.so").exists()
+            )
             free_space = None
             if self.usb_mount:
                 try:
