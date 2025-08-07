@@ -14,9 +14,9 @@ set(LASZIP_SRC_DIR "${PARENT_SOURCE_DIR}/3rd/LASzip")
 # Create a separate binary dir for LASzip to avoid conflicts
 set(LASZIP_BIN_DIR "${CMAKE_BINARY_DIR}/_laszip_build")
 
-# Add LASzip as a subdirectory with its own binary directory
+# Add LASzip as a subdirectory with its own binary directory.
+# This makes the laszip and laszip_api targets available for linking.
 add_subdirectory("${LASZIP_SRC_DIR}" "${LASZIP_BIN_DIR}")
-include_directories("${LASZIP_SRC_DIR}/include")
 
 # --- Livox SDK2 ---
 find_path(LIVOX_SDK2_INCLUDE_DIR
@@ -45,14 +45,14 @@ add_library(save_laz_utils
   csv_writer.cpp)
 
 target_include_directories(save_laz_utils PUBLIC
-  ${LASZIP_API_INCLUDE_DIR}
-  ${LASZIP_COMMON_INCLUDE_DIR}
+  "${LASZIP_SRC_DIR}/include"
+  "${LASZIP_BIN_DIR}/include"
   ${LIVOX_SDK2_INCLUDE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(save_laz_utils PUBLIC
-  ${LASZIP_API_LIBRARY}
-  ${LASZIP_LIBRARY}
+  laszip_api
+  laszip
   ${LIVOX_SDK2_LIBRARY}
   pthread
   dl)
