@@ -14,6 +14,19 @@ struct Point
     double gps_time;
 };
 
+struct ImuData
+{
+    double timestamp;
+    float gyro_x;
+    float gyro_y;
+    float gyro_z;
+    float acc_x;
+    float acc_y;
+    float acc_z;
+    std::uint32_t imu_id;
+    std::uint64_t timestamp_unix;
+};
+
 struct LazStats
 {
     std::size_t point_count;
