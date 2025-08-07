@@ -5,48 +5,18 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # --- LASzip ---
-set(LASZIP_ROOT "${CMAKE_SOURCE_DIR}/../3rd/LASzip")
+# Get the parent of the current source dir
+get_filename_component(PARENT_SOURCE_DIR "${CMAKE_SOURCE_DIR}" DIRECTORY)
 
-find_path(LASZIP_API_INCLUDE_DIR
-          NAMES laszip_api.h
-          PATHS
-            ${LASZIP_ROOT}/dll
-            /usr/include
-            /usr/include/laszip
-            /usr/local/include
-            /usr/local/include/laszip)
+# Set the path to LASzip source (outside current CMake source tree)
+set(LASZIP_SRC_DIR "${PARENT_SOURCE_DIR}/3rd/LASzip")
 
-find_path(LASZIP_COMMON_INCLUDE_DIR
-          NAMES laszip_common.h
-          PATHS
-            ${LASZIP_ROOT}/include/laszip
-            /usr/include
-            /usr/include/laszip
-            /usr/local/include
-            /usr/local/include/laszip)
+# Create a separate binary dir for LASzip to avoid conflicts
+set(LASZIP_BIN_DIR "${CMAKE_BINARY_DIR}/_laszip_build")
 
-find_library(LASZIP_API_LIBRARY
-             NAMES laszip_api
-             PATHS
-               ${LASZIP_ROOT}/lib
-               ${LASZIP_ROOT}/build/lib
-               /usr/lib
-               /usr/lib/x86_64-linux-gnu
-               /usr/local/lib)
-
-find_library(LASZIP_LIBRARY
-             NAMES laszip
-             PATHS
-               ${LASZIP_ROOT}/lib
-               ${LASZIP_ROOT}/build/lib
-               /usr/lib
-               /usr/lib/x86_64-linux-gnu
-               /usr/local/lib)
-
-if(NOT LASZIP_API_INCLUDE_DIR OR NOT LASZIP_COMMON_INCLUDE_DIR OR
-   NOT LASZIP_API_LIBRARY OR NOT LASZIP_LIBRARY)
-  message(FATAL_ERROR "LASzip library not found")
-endif()
+# Add LASzip as a subdirectory with its own binary directory
+add_subdirectory("${LASZIP_SRC_DIR}" "${LASZIP_BIN_DIR}")
+include_directories("${LASZIP_SRC_DIR}/include")
 
 # --- Livox SDK2 ---
 find_path(LIVOX_SDK2_INCLUDE_DIR

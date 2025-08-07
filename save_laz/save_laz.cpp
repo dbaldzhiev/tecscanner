@@ -6,7 +6,7 @@
 #include <filesystem>
 #include <iostream>
 #include <limits>
-#include <laszip_api.h>
+#include <laszip/laszip_api.h>
 
 LazStats saveLaz(const std::string& output,
                  const std::vector<Point>& points,
@@ -41,18 +41,23 @@ LazStats saveLaz(const std::string& output,
     stats.decimation_step = step;
 
     laszip_POINTER writer = nullptr;
-    if(laszip_create(&writer))
+if(laszip_create(&writer))
+{
+    char* msg = nullptr;
+    laszip_get_error(writer, &msg);
+    std::cerr << "Failed to create laszip writer: " << (msg ? msg : "unknown error")
+              << std::endl;
+    if(writer)
     {
-        char* msg = nullptr;
-        laszip_get_error(writer, &msg);
-        std::cerr << "Failed to create laszip writer: " << (msg ? msg : "unknown error")
-                  << std::endl;
-        if(writer)
-        {
-            laszip_destroy(writer);
-        }
-        return stats;
+        laszip_destroy(writer);
     }
+    return stats;
+}
+else if(writer == nullptr)
+{
+    std::cerr << "Writer is null even though laszip_create succeeded!" << std::endl;
+}
+
 
     struct WriterGuard
     {
