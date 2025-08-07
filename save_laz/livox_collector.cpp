@@ -67,15 +67,18 @@ bool LivoxCollector::collect(std::vector<Point>& points,
         uint64_t ts = 0;
         std::memcpy(&ts, data->timestamp, sizeof(ts));
         ImuData imu;
-        imu.timestamp = static_cast<double>(ts) * 1e-9;
+        imu.timestamp = ts;
         imu.gyro_x = imu_raw->gyro_x;
         imu.gyro_y = imu_raw->gyro_y;
         imu.gyro_z = imu_raw->gyro_z;
         imu.acc_x = imu_raw->acc_x;
         imu.acc_y = imu_raw->acc_y;
         imu.acc_z = imu_raw->acc_z;
-        imu.imu_id = handle;
-        imu.timestamp_unix = ts;
+        imu.imu_id = static_cast<std::uint16_t>(handle);
+        imu.timestamp_unix = static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::system_clock::now().time_since_epoch())
+                .count());
         c->imus->push_back(imu);
     };
 

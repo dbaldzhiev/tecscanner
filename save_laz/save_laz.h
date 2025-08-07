@@ -19,14 +19,14 @@ struct Point
 
 struct ImuData
 {
-    double timestamp;
+    std::uint64_t timestamp;
     float gyro_x;
     float gyro_y;
     float gyro_z;
     float acc_x;
     float acc_y;
     float acc_z;
-    std::uint32_t imu_id;
+    std::uint16_t imu_id;
     std::uint64_t timestamp_unix;
 };
 
