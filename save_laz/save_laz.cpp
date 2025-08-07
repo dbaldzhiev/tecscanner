@@ -41,22 +41,31 @@ LazStats saveLaz(const std::string& output,
     stats.decimation_step = step;
 
     laszip_POINTER writer = nullptr;
-if(laszip_create(&writer))
-{
-    char* msg = nullptr;
-    laszip_get_error(writer, &msg);
-    std::cerr << "Failed to create laszip writer: " << (msg ? msg : "unknown error")
-              << std::endl;
-    if(writer)
+
+    if(laszip_load_dll())
     {
-        laszip_destroy(writer);
+        std::cerr << "Failed to load LASzip DLL" << std::endl;
+        return stats;
     }
-    return stats;
-}
-else if(writer == nullptr)
-{
-    std::cerr << "Writer is null even though laszip_create succeeded!" << std::endl;
-}
+
+    if(laszip_create(&writer))
+    {
+        char* msg = nullptr;
+        if(writer)
+        {
+            laszip_get_error(writer, &msg);
+            laszip_destroy(writer);
+        }
+        std::cerr << "Failed to create laszip writer: " << (msg ? msg : "unknown error")
+                  << std::endl;
+        return stats;
+    }
+
+    if(writer == nullptr)
+    {
+        std::cerr << "Writer is null even though laszip_create succeeded!" << std::endl;
+        return stats;
+    }
 
 
     struct WriterGuard
