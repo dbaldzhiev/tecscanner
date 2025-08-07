@@ -47,7 +47,9 @@ bool LivoxCollector::collect(std::vector<Point>& points,
             p.z = 0.001 * pts[i].z;
             p.intensity = pts[i].reflectivity;
             p.tag = pts[i].tag;
-            p.gps_time = gps_time;
+            p.line_id = 0;
+            p.laser_id = 0;
+            p.gps_time = gps_time * 1e3; // milliseconds
             c->pts->push_back(p);
         }
         *(c->frame_done) = true;

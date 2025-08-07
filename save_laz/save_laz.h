@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <nlohmann/json.hpp>
 
 struct Point
 {
@@ -11,6 +12,8 @@ struct Point
     double z;
     std::uint8_t intensity;
     std::uint8_t tag;
+    std::uint8_t line_id;
+    std::uint16_t laser_id;
     double gps_time;
 };
 
@@ -29,11 +32,14 @@ struct ImuData
 
 struct LazStats
 {
+    std::string filename;
     std::size_t point_count;
     std::size_t decimation_step;
     double capture_duration;  // seconds
     double write_duration;    // seconds
-    std::uint64_t file_size;  // bytes
+    double file_size;         // MB
+
+    nlohmann::json produceStatus() const;
 };
 
 struct CsvWriter; // forward declaration
