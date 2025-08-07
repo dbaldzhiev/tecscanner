@@ -89,6 +89,7 @@ LazStats saveLaz(const std::string& output,
     laszip_header* header = nullptr;
     laszip_get_header_pointer(writer, &header);
     header->file_source_ID = 4711;
+    header->global_encoding = (1 << 0);
     header->version_major = 1;
     header->version_minor = 2;
     header->point_data_format = 1;
@@ -104,7 +105,8 @@ LazStats saveLaz(const std::string& output,
     header->max_z = max_z;
     header->number_of_point_records =
         static_cast<laszip_U32>((points.size() + step - 1) / step);
-
+    std::fill_n(header->number_of_points_by_return, 5, 0);
+    header->number_of_points_by_return[0] = header->number_of_point_records;
     if(laszip_open_writer(writer, output.c_str(), 1))
     {
         std::cerr << "Failed to open LAZ writer" << std::endl;
