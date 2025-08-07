@@ -4,7 +4,21 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <algorithm>
+#include <limits>
 #include <laszip_api.h>
+
+struct LivoxPoint
+{
+    double x;
+    double y;
+    double z;
+    std::uint8_t intensity;
+    std::uint8_t tag;
+    double gps_time;
+    std::uint8_t line_id;
+    std::uint8_t laser_id;
+};
 
 LazStats saveLaz(const std::string& output,
                  const std::vector<Point>& points,
@@ -14,12 +28,43 @@ LazStats saveLaz(const std::string& output,
     stats.point_count = points.size();
     stats.capture_duration = capture_duration;
 
+    std::vector<LivoxPoint> buffer;
+    buffer.reserve(points.size());
+    for(const auto& p : points)
+    {
+        buffer.push_back({p.x, p.y, p.z, p.intensity, p.tag, p.gps_time, 0, 0});
+    }
+
+    double min_x = std::numeric_limits<double>::max();
+    double max_x = std::numeric_limits<double>::lowest();
+    double min_y = std::numeric_limits<double>::max();
+    double max_y = std::numeric_limits<double>::lowest();
+    double min_z = std::numeric_limits<double>::max();
+    double max_z = std::numeric_limits<double>::lowest();
+    for(const auto& p : buffer)
+    {
+        min_x = std::min(min_x, p.x);
+        max_x = std::max(max_x, p.x);
+        min_y = std::min(min_y, p.y);
+        max_y = std::max(max_y, p.y);
+        min_z = std::min(min_z, p.z);
+        max_z = std::max(max_z, p.z);
+    }
+
+    std::size_t step = buffer.size() / 2000000;
+    if(step == 0)
+    {
+        step = 1;
+    }
+    stats.decimation_step = step;
+
     laszip_POINTER writer = nullptr;
     if(laszip_create(&writer))
     {
         const char* msg = nullptr;
         laszip_get_error_message(writer, &msg);
-        std::cerr << "Failed to create laszip writer: " << (msg ? msg : "unknown error") << std::endl;
+        std::cerr << "Failed to create laszip writer: " << (msg ? msg : "unknown error")
+                  << std::endl;
         if(writer)
         {
             laszip_destroy(writer);
@@ -55,6 +100,14 @@ LazStats saveLaz(const std::string& output,
     header->x_scale_factor = 0.0001;
     header->y_scale_factor = 0.0001;
     header->z_scale_factor = 0.0001;
+    header->min_x = min_x;
+    header->max_x = max_x;
+    header->min_y = min_y;
+    header->max_y = max_y;
+    header->min_z = min_z;
+    header->max_z = max_z;
+    header->number_of_point_records =
+        static_cast<laszip_U32>((buffer.size() + step - 1) / step);
 
     if(laszip_open_writer(writer, output.c_str(), 1))
     {
@@ -86,8 +139,9 @@ LazStats saveLaz(const std::string& output,
 
     auto write_start = std::chrono::steady_clock::now();
     laszip_F64 coords[3];
-    for(const auto& p : points)
+    for(std::size_t i = 0; i < buffer.size(); i += step)
     {
+        const auto& p = buffer[i];
         laz_point->intensity = p.intensity;
         laz_point->gps_time = p.gps_time;
         laz_point->user_data = 0;
@@ -100,7 +154,8 @@ LazStats saveLaz(const std::string& output,
         laszip_write_point(writer);
         csv_writer << coords[0] << ',' << coords[1] << ',' << coords[2] << ','
                    << static_cast<int>(p.intensity) << ',' << p.gps_time << ','
-                   << 0 << ',' << static_cast<int>(p.tag) << ',' << 0 << '\n';
+                   << static_cast<int>(p.line_id) << ',' << static_cast<int>(p.tag)
+                   << ',' << static_cast<int>(p.laser_id) << '\n';
     }
     auto write_end = std::chrono::steady_clock::now();
 

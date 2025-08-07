@@ -17,6 +17,7 @@ struct Point
 struct LazStats
 {
     std::size_t point_count;
+    std::size_t decimation_step;
     double capture_duration;  // seconds
     double write_duration;    // seconds
     std::uint64_t file_size;  // bytes
