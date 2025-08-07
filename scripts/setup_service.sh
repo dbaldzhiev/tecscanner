@@ -3,6 +3,12 @@
 set -e
 
 SERVICE_NAME=tecscanner
+
+if [ -f "/etc/systemd/system/${SERVICE_NAME}.service" ]; then
+  echo "Service ${SERVICE_NAME} already installed."
+  exit 0
+fi
+
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 USER_NAME=${SUDO_USER:-$(whoami)}
 
