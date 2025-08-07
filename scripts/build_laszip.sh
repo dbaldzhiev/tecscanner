@@ -9,6 +9,7 @@ if [ ! -f "$PROJECT_ROOT/3rd/LASzip/CMakeCache.txt" ]; then
   cd "$PROJECT_ROOT/3rd/LASzip" || exit 1
   cmake -DCMAKE_BUILD_TYPE=Release CMakeLists.txt
   cmake --build .
+  make install
 else
   echo "LASzip already built."
 fi
