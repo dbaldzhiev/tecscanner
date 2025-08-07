@@ -23,6 +23,9 @@ struct LazStats
     std::uint64_t file_size;  // bytes
 };
 
+struct CsvWriter; // forward declaration
+
 LazStats saveLaz(const std::string& laz_file,
                  const std::vector<Point>& points,
-                 double capture_duration);
+                 double capture_duration,
+                 CsvWriter* csv_writer = nullptr);
