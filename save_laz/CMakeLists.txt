@@ -42,7 +42,8 @@ endif()
 add_library(save_laz_utils
   save_laz.cpp
   livox_collector.cpp
-  csv_writer.cpp)
+  csv_writer.cpp
+  imu_writer.cpp)
 
 target_include_directories(save_laz_utils PUBLIC
   "${LASZIP_SRC_DIR}/include"

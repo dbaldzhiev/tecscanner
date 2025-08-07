@@ -8,6 +8,7 @@
 #include <thread>
 
 bool LivoxCollector::collect(std::vector<Point>& points,
+                             std::vector<ImuData>& imus,
                              double& duration,
                              const std::string& cfg)
 {
@@ -22,9 +23,10 @@ bool LivoxCollector::collect(std::vector<Point>& points,
     struct CallbackCtx
     {
         std::vector<Point>* pts;
+        std::vector<ImuData>* imus;
         std::atomic_bool* frame_done;
         std::atomic_bool* running;
-    } ctx{&points, &frame_done, &running};
+    } ctx{&points, &imus, &frame_done, &running};
 
     auto point_cb = [](uint32_t, const uint8_t, LivoxLidarEthernetPacket* data, void* user)
     {
@@ -52,15 +54,40 @@ bool LivoxCollector::collect(std::vector<Point>& points,
         *(c->running) = false;
     };
 
+    auto imu_cb = [](uint32_t handle, const uint8_t, LivoxLidarEthernetPacket* data, void* user)
+    {
+        if(!data || data->data_type != kLivoxLidarImuData)
+        {
+            return;
+        }
+        auto* c = static_cast<CallbackCtx*>(user);
+        auto* imu_raw = reinterpret_cast<LivoxLidarImuRawPoint*>(data->data);
+        uint64_t ts = 0;
+        std::memcpy(&ts, data->timestamp, sizeof(ts));
+        ImuData imu;
+        imu.timestamp = static_cast<double>(ts) * 1e-9;
+        imu.gyro_x = imu_raw->gyro_x;
+        imu.gyro_y = imu_raw->gyro_y;
+        imu.gyro_z = imu_raw->gyro_z;
+        imu.acc_x = imu_raw->acc_x;
+        imu.acc_y = imu_raw->acc_y;
+        imu.acc_z = imu_raw->acc_z;
+        imu.imu_id = handle;
+        imu.timestamp_unix = ts;
+        c->imus->push_back(imu);
+    };
+
     auto info_cb = [](const uint32_t handle, const LivoxLidarInfo* info, void*)
     {
         if(info)
         {
             SetLivoxLidarWorkMode(handle, kLivoxLidarNormal, nullptr, nullptr);
+            EnableLivoxLidarImuData(handle, nullptr, nullptr);
         }
     };
 
     SetLivoxLidarPointCloudCallBack(point_cb, &ctx);
+    SetLivoxLidarImuDataCallback(imu_cb, &ctx);
     SetLivoxLidarInfoChangeCallback(info_cb, nullptr);
     LivoxLidarSdkStart();
 
