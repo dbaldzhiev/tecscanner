@@ -108,7 +108,7 @@
     <div id="sysbar">
       <span id="eth0_ip" class="{{ 'ok' if status.eth0_ip else 'bad' }}">{{ status.eth0_ip or 'eth0 ?' }}</span>
       <span id="lidar_ip" class="{{ 'ok' if status.lidar_detected else 'bad' }}">{{ status.lidar_ip or 'lidar ?' }}</span>
-      <span id="livox_driver" class="{{ 'ok' if status.livox_driver else 'bad' }}">driver</span>
+      <span id="livox_sdk2" class="{{ 'ok' if status.livox_sdk2 else 'bad' }}">LivoxSDK2</span>
       <span id="save_laz" class="{{ 'ok' if status.save_laz else 'bad' }}">save_laz</span>
       <span id="laszip" class="{{ 'ok' if status.laszip else 'bad' }}">laszip</span>
       <span id="flash" class="{{ 'ok' if status.storage_present else 'bad' }}">storage</span>
@@ -230,7 +230,7 @@
             stopBtn.disabled = !statusData.recording;
             setIndicator('eth0_ip', statusData.eth0_ip || 'eth0 ?', !!statusData.eth0_ip);
             setIndicator('lidar_ip', statusData.lidar_ip || 'lidar ?', statusData.lidar_detected);
-            setIndicator('livox_driver', 'driver', statusData.livox_driver);
+            setIndicator('livox_sdk2', 'LivoxSDK2', statusData.livox_sdk2);
             setIndicator('save_laz', 'save_laz', statusData.save_laz);
             setIndicator('laszip', 'laszip', statusData.laszip);
             setIndicator('flash', 'storage', statusData.storage_present);

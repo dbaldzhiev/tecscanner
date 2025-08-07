@@ -436,7 +436,14 @@ class RecordingManager:
                     lidar_streaming = True
             ip_eth0 = self._get_ip_address("eth0")
             lidar_ip = os.getenv("LIDAR_IP")
-            livox_driver = shutil.which("livox_ros_driver") is not None
+            sdk_files = [
+                "/usr/local/lib/liblivox_lidar_sdk_shared.so",
+                "/usr/local/lib/liblivox_lidar_sdk_static.a",
+                "/usr/local/include/livox_lidar_api.h",
+                "/usr/local/include/livox_lidar_cfg.h",
+                "/usr/local/include/livox_lidar_def.h",
+            ]
+            livox_sdk2 = all(Path(p).exists() for p in sdk_files)
             save_laz_ok = shutil.which("save_laz") is not None
             laszip_ok = shutil.which("laszip") is not None
             free_space = None
@@ -458,7 +465,7 @@ class RecordingManager:
             "lidar_streaming": lidar_streaming,
             "eth0_ip": ip_eth0,
             "lidar_ip": lidar_ip,
-            "livox_driver": livox_driver,
+            "livox_sdk2": livox_sdk2,
             "save_laz": save_laz_ok,
             "laszip": laszip_ok,
             "log_error": self._log_error,
