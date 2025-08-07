@@ -24,6 +24,7 @@ from pathlib import Path
 import logging
 import shutil
 import re
+from save_laz import utils as sl_utils
 
 logger = logging.getLogger(__name__)
 
@@ -334,6 +335,16 @@ class RecordingManager:
                 self._finalize_recording(False, "save_failed")
                 return
             failures = 0
+            # Generate auxiliary files following mandeye_controller conventions
+            lidar_sn = self.current_dir / f"lidar{frame_idx:04d}.sn"
+            status_file = self.current_dir / f"status{frame_idx:04d}.json"
+            gnss_proc = self.current_dir / f"gnss{frame_idx:04d}.gnss"
+            gnss_raw = self.current_dir / f"gnss{frame_idx:04d}.nmea"
+            with self._lock:
+                lidar_detected = self._lidar_detected
+            sl_utils.write_lidar_sn(lidar_sn)
+            sl_utils.write_status(status_file, lidar_detected=lidar_detected)
+            sl_utils.write_gnss(gnss_proc, gnss_raw)
             if not csv_path.exists():
                 self._convert_to_csv(path, csv_path)
             try:
