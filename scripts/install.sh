@@ -13,13 +13,13 @@ steps=(
   update_submodules.sh
   configure_swap.sh
   install_packages.sh
+  setup_python_env.sh
+  setup_service.sh
   build_livox_sdk2.sh
   build_laszip.sh
   compile_save_laz.sh
-  setup_python_env.sh
   setup_usb_mount.sh
   configure_network.sh
-  setup_service.sh
 )
 
 for step in "${steps[@]}"; do
