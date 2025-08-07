@@ -71,7 +71,8 @@ endif()
 # --- Library and executable ---
 add_library(save_laz_utils
   save_laz.cpp
-  livox_collector.cpp)
+  livox_collector.cpp
+  csv_writer.cpp)
 
 target_include_directories(save_laz_utils PUBLIC
   ${LASZIP_API_INCLUDE_DIR}
