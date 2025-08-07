@@ -1,7 +1,6 @@
 #include "imu_writer.h"
 
 #include <iostream>
-#include <iomanip>
 
 bool openImuCsv(ImuWriter& writer, const std::string& filename)
 {
@@ -11,7 +10,7 @@ bool openImuCsv(ImuWriter& writer, const std::string& filename)
         std::cerr << "Failed to open IMU CSV writer" << std::endl;
         return false;
     }
-    writer.file << "timestamp,gyroX,gyroY,gyroZ,accX,accY,accZ,imuId,timestampUnix\n";
+    writer.file << "timestamp gyroX gyroY gyroZ accX accY accZ imuId timestampUnix\n";
     return true;
 }
 
@@ -21,10 +20,10 @@ void writeImu(ImuWriter& writer, const ImuData& imu)
     {
         return;
     }
-    writer.file << std::fixed << std::setprecision(9) << imu.timestamp << ','
-                << imu.gyro_x << ',' << imu.gyro_y << ',' << imu.gyro_z << ','
-                << imu.acc_x << ',' << imu.acc_y << ',' << imu.acc_z << ','
-                << imu.imu_id << ',' << imu.timestamp_unix << '\n';
+    writer.file << imu.timestamp << ' '
+                << imu.gyro_x << ' ' << imu.gyro_y << ' ' << imu.gyro_z << ' '
+                << imu.acc_x << ' ' << imu.acc_y << ' ' << imu.acc_z << ' '
+                << imu.imu_id << ' ' << imu.timestamp_unix << '\n';
 }
 
 void closeImuCsv(ImuWriter& writer)
