@@ -43,8 +43,8 @@ LazStats saveLaz(const std::string& output,
     laszip_POINTER writer = nullptr;
     if(laszip_create(&writer))
     {
-        const char* msg = nullptr;
-        laszip_get_error_message(writer, &msg);
+        char* msg = nullptr;
+        laszip_get_error(writer, &msg);
         std::cerr << "Failed to create laszip writer: " << (msg ? msg : "unknown error")
                   << std::endl;
         if(writer)
