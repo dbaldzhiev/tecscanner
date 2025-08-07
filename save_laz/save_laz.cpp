@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <iostream>
 #include <limits>
+#include <cmath>
 #include <laszip/laszip_api.h>
 
 LazStats saveLaz(const std::string& output,
@@ -14,6 +15,7 @@ LazStats saveLaz(const std::string& output,
                  CsvWriter* csv_writer)
 {
     LazStats stats{};
+    stats.filename = output;
     stats.point_count = points.size();
     stats.capture_duration = capture_duration;
 
@@ -33,11 +35,10 @@ LazStats saveLaz(const std::string& output,
         max_z = std::max(max_z, p.z);
     }
 
-    std::size_t step = points.size() / 2000000;
-    if(step == 0)
-    {
-        step = 1;
-    }
+    std::size_t step =
+        (points.size() > 4'000'000)
+            ? static_cast<std::size_t>(std::ceil(points.size() / 2'000'000.0))
+            : 1;
     stats.decimation_step = step;
 
     laszip_POINTER writer = nullptr;
@@ -97,12 +98,12 @@ LazStats saveLaz(const std::string& output,
     header->x_scale_factor = 0.0001;
     header->y_scale_factor = 0.0001;
     header->z_scale_factor = 0.0001;
-    header->min_x = min_x;
-    header->max_x = max_x;
-    header->min_y = min_y;
-    header->max_y = max_y;
-    header->min_z = min_z;
-    header->max_z = max_z;
+    header->min_x = min_x * 0.001;
+    header->max_x = max_x * 0.001;
+    header->min_y = min_y * 0.001;
+    header->max_y = max_y * 0.001;
+    header->min_z = min_z * 0.001;
+    header->max_z = max_z * 0.001;
     header->number_of_point_records =
         static_cast<laszip_U32>((points.size() + step - 1) / step);
     std::fill_n(header->number_of_points_by_return, 5, 0);
@@ -123,13 +124,13 @@ LazStats saveLaz(const std::string& output,
     {
         const auto& p = points[i];
         laz_point->intensity = p.intensity;
-        laz_point->gps_time = p.gps_time;
-        laz_point->user_data = 0;
+        laz_point->gps_time = p.gps_time * 1e-3; // convert ms -> s
+        laz_point->user_data = static_cast<laszip_U8>(p.laser_id);
         laz_point->classification = p.tag;
-        laz_point->point_source_ID = 0;
-        coords[0] = p.x;
-        coords[1] = p.y;
-        coords[2] = p.z;
+        laz_point->point_source_ID = p.line_id;
+        coords[0] = p.x * 0.001;
+        coords[1] = p.y * 0.001;
+        coords[2] = p.z * 0.001;
         laszip_set_coordinates(writer, coords);
         laszip_write_point(writer);
         if(csv_writer)
@@ -144,12 +145,26 @@ LazStats saveLaz(const std::string& output,
 
     try
     {
-        stats.file_size = std::filesystem::file_size(output);
+        stats.file_size =
+            static_cast<double>(std::filesystem::file_size(output)) /
+            (1024.0 * 1024.0);
     }
     catch(const std::filesystem::filesystem_error&)
     {
-        stats.file_size = 0;
+        stats.file_size = 0.0;
     }
 
     return stats;
+}
+
+nlohmann::json LazStats::produceStatus() const
+{
+    return {
+        {"filename", filename},
+        {"point_count", point_count},
+        {"decimation_step", decimation_step},
+        {"capture_duration", capture_duration},
+        {"write_duration", write_duration},
+        {"file_size_mb", file_size}
+    };
 }

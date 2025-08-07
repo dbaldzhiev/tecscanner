@@ -9,6 +9,7 @@
 #include <vector>
 #include <sstream>
 #include <iomanip>
+#include <fstream>
 
 int main(int argc, char** argv)
 {
@@ -113,5 +114,31 @@ int main(int argc, char** argv)
     {
         closeCsv(csv_writer);
     }
+
+    {
+        std::size_t slash = output.find_last_of("/\\");
+        std::size_t dot = output.find_last_of('.');
+        std::size_t start = (slash == std::string::npos) ? 0 : slash + 1;
+        std::string base =
+            output.substr(start, (dot == std::string::npos) ? std::string::npos
+                                                              : dot - start);
+        std::size_t pos = base.find_last_not_of("0123456789");
+        unsigned idx = 0;
+        if(pos != std::string::npos && pos + 1 < base.size())
+        {
+            idx = static_cast<unsigned>(std::stoul(base.substr(pos + 1)));
+        }
+        std::string dir = (slash == std::string::npos) ? std::string()
+                                                        : output.substr(0, slash + 1);
+        std::ostringstream oss;
+        oss << dir << "status" << std::setw(4) << std::setfill('0') << idx
+            << ".json";
+        std::ofstream sf(oss.str());
+        if(sf)
+        {
+            sf << stats.produceStatus().dump(2);
+        }
+    }
+
     return stats.point_count > 0 ? 0 : 1;
 }

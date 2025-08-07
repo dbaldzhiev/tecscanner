@@ -22,8 +22,9 @@ void writePoint(CsvWriter& writer, const Point& p)
         return;
     }
     writer.file << p.x << ',' << p.y << ',' << p.z << ','
-                << static_cast<int>(p.intensity) << ',' << p.gps_time
-                << ",0," << static_cast<int>(p.tag) << ",0\n";
+                << static_cast<int>(p.intensity) << ',' << p.gps_time << ','
+                << static_cast<int>(p.line_id) << ',' << static_cast<int>(p.tag)
+                << ',' << p.laser_id << "\n";
 }
 
 void closeCsv(CsvWriter& writer)
