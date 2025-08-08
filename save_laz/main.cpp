@@ -1,4 +1,5 @@
-#include "csv_writer.h"
+#include "livox_collector.h"
+#include "save_laz.h"
 #include "imu_writer.h"
 #include "livox_collector.h"
 #include "save_laz.h"
@@ -13,6 +14,7 @@
 
 int main(int argc, char** argv)
 {
+
 	if(argc < 2)
 	{
 		std::cerr << "Usage: " << argv[0] << " [--csv] output.laz" << std::endl;
@@ -24,6 +26,7 @@ int main(int argc, char** argv)
 	{
 		cfg = env;
 	}
+
 
 	bool csv = false;
 	std::string output;
@@ -48,6 +51,7 @@ int main(int argc, char** argv)
 		std::cerr << "Output filename required" << std::endl;
 		return 1;
 	}
+
 
 	std::vector<Point> points;
 	std::vector<ImuData> imus;
@@ -108,36 +112,7 @@ int main(int argc, char** argv)
 		}
 	}
 
-	CsvWriter csv_writer;
-	CsvWriter* csv_ptr = nullptr;
-	std::string csv_output;
-	if(csv)
-	{
-		csv_output = output;
-		auto dot = csv_output.find_last_of('.');
-		if(dot != std::string::npos)
-		{
-			csv_output.replace(dot, std::string::npos, ".csv");
-		}
-		else
-		{
-			csv_output += ".csv";
-		}
-		if(openCsv(csv_writer, csv_output))
-		{
-			csv_ptr = &csv_writer;
-		}
-		else
-		{
-			std::cerr << "CSV output disabled" << std::endl;
-		}
-	}
-
-	LazStats stats = saveLaz(output, points, capture_duration, csv_ptr);
-	if(csv_ptr)
-	{
-		closeCsv(csv_writer);
-	}
+    LazStats stats = saveLaz(output, points, capture_duration);
 
 	{
 		std::size_t slash = output.find_last_of("/\\");
