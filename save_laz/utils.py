@@ -84,9 +84,9 @@ def write_status(path: Path, **extra) -> None:
 
     The resulting structure mirrors ``produceReport`` from the reference
     repository and includes the fields ``name``, ``hash``, ``version``,
-    ``hardware``, ``arch``, ``state``, ``livox``, ``gpio``,
-    ``fs_benchmark``, ``fs``, ``gnss`` and ``lastLazStatus``.  Any extra
-    keyword arguments are merged into the top level of the JSON.
+    ``hardware``, ``arch``, ``state``, ``livox``, ``fs_benchmark``, ``fs``,
+    ``gnss`` and ``lastLazStatus``.  Any extra keyword arguments are merged into
+    the top level of the JSON.
     """
     data = {
         "name": platform.node(),
@@ -96,7 +96,6 @@ def write_status(path: Path, **extra) -> None:
         "arch": platform.architecture()[0],
         "state": extra.pop("state", None),
         "livox": extra.pop("livox", {}),
-        "gpio": extra.pop("gpio", {}),
         "fs_benchmark": extra.pop("fs_benchmark", {}),
         "fs": extra.pop("fs", {}),
         "gnss": extra.pop("gnss", {}),
