@@ -24,7 +24,19 @@ from pathlib import Path
 import logging
 import shutil
 import re
-from save_laz import utils as sl_utils
+import types
+
+try:
+    from save_laz import utils as sl_utils
+except ModuleNotFoundError:
+    sl_utils = types.SimpleNamespace(
+        write_lidar_sn=lambda *args, **kwargs: None,
+        write_status=lambda *args, **kwargs: None,
+        write_gnss=lambda *args, **kwargs: None,
+    )
+    logging.getLogger(__name__).warning(
+        "save_laz module not found; auxiliary metadata files will not be generated"
+    )
 
 logger = logging.getLogger(__name__)
 

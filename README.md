@@ -60,8 +60,12 @@ cd ../../..
 
 ### 6. Compile `save_laz`
 
+The `save_laz` recorder utility is built from the sources in the `code/`
+directory.  A helper script `scripts/compile_save_laz.sh` automates the
+process; alternatively compile manually:
+
 ```bash
-cd save_laz
+cd code
 cmake -S . -B build
 cmake --build build --config Release
 sudo install -m 0755 build/save_laz /usr/local/bin/save_laz
@@ -117,6 +121,9 @@ No reboot is required; the address is applied immediately.
 source .venv/bin/activate
 flask --app webapp run --host=0.0.0.0
 ```
+
+The interface starts even without the `save_laz` utility installed, though
+recording functionality will be disabled until it is available on the system.
 
 ## API Endpoints
 
