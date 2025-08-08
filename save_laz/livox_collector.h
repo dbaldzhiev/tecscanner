@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -16,11 +17,12 @@ public:
                  const std::string& cfg);
     static bool check(const std::string& cfg);
 
-    const std::vector<std::pair<std::uint32_t, std::string>>& serials() const
+    const std::vector<std::pair<std::uint16_t, std::string>>& serials() const
     {
         return serials_;
     }
 
 private:
-    std::vector<std::pair<std::uint32_t, std::string>> serials_;
+    std::vector<std::pair<std::uint16_t, std::string>> serials_;
+    std::unordered_map<std::uint32_t, std::uint16_t> handle_to_id_;
 };
