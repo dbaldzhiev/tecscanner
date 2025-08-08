@@ -33,6 +33,9 @@ except ModuleNotFoundError:
         write_lidar_sn=lambda *args, **kwargs: None,
         write_status=lambda *args, **kwargs: None,
         write_gnss=lambda *args, **kwargs: None,
+        write_imu=lambda *args, **kwargs: None,
+        write_imu_csv=lambda *args, **kwargs: None,
+        write_imu_sn=lambda *args, **kwargs: None,
     )
     logging.getLogger(__name__).warning(
         "save_laz module not found; auxiliary metadata files will not be generated"
@@ -357,6 +360,21 @@ class RecordingManager:
             sl_utils.write_lidar_sn(lidar_sn)
             sl_utils.write_status(status_file, lidar_detected=lidar_detected)
             sl_utils.write_gnss(gnss_proc, gnss_raw)
+            # Write IMU CSV and serial number files if utilities are available
+            imu_csv = self.current_dir / f"imu{frame_idx:04d}.csv"
+            imu_sn = self.current_dir / f"imu{frame_idx:04d}.sn"
+            try:
+                # Some versions expose a combined helper
+                sl_utils.write_imu(imu_csv, imu_sn)  # type: ignore[attr-defined]
+            except Exception:
+                try:
+                    sl_utils.write_imu_csv(imu_csv)  # type: ignore[attr-defined]
+                except Exception:
+                    pass
+                try:
+                    sl_utils.write_imu_sn(imu_sn)  # type: ignore[attr-defined]
+                except Exception:
+                    pass
             if not csv_path.exists():
                 self._convert_to_csv(path, csv_path)
             try:
