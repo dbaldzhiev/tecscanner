@@ -1,8 +1,17 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.14)
 project(save_laz)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# --- nlohmann_json ---
+include(FetchContent)
+set(JSON_BuildTests OFF CACHE INTERNAL "")
+FetchContent_Declare(
+  nlohmann_json
+  URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz
+)
+FetchContent_MakeAvailable(nlohmann_json)
 
 # --- LASzip ---
 # Get the parent of the current source dir
@@ -51,6 +60,7 @@ target_include_directories(save_laz_utils PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(save_laz_utils PUBLIC
+  nlohmann_json::nlohmann_json
   laszip_api
   laszip
   ${LIVOX_SDK2_LIBRARY}
