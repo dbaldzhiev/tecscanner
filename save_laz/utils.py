@@ -14,6 +14,7 @@ import json
 import platform
 import shutil
 import subprocess
+import re
 from typing import Iterable
 
 
@@ -40,12 +41,32 @@ def write_lidar_sn(path: Path) -> None:
         )
         raw_lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
         lines: list[str] = []
-        for idx, entry in enumerate(raw_lines):
-            parts = entry.split()
-            if len(parts) >= 2:
-                lines.append(f"{parts[0]} {parts[1]}")
-            else:
-                lines.append(f"{idx} {parts[0]}")
+        for entry in raw_lines:
+            # Try to extract explicit "id"/"sn" fields first
+            m = re.search(
+                r"id\s*[:=]\s*(\d+)\b.*?sn\s*[:=]\s*([A-Za-z0-9]+)",
+                entry,
+                flags=re.IGNORECASE,
+            )
+            if m:
+                lines.append(f"{m.group(1)} {m.group(2)}")
+                continue
+            # Fallback: pick the first small integer token as id and the last
+            # alphanumeric token as the serial number.  This skips timestamps
+            # and other log prefixes.
+            tokens = re.findall(r"[A-Za-z0-9]+", entry)
+            if not tokens:
+                continue
+            sn = tokens[-1]
+            id_tok = next((t for t in tokens if t.isdigit() and len(t) <= 3), None)
+            if id_tok:
+                lines.append(f"{id_tok} {sn}")
+        # If nothing matched but output exists, enumerate remaining lines
+        if not lines:
+            for idx, entry in enumerate(raw_lines):
+                tokens = re.findall(r"[A-Za-z0-9]+", entry)
+                if tokens:
+                    lines.append(f"{idx} {tokens[-1]}")
     except (OSError, subprocess.SubprocessError):
         lines = []
     _write_lines(path, lines)
