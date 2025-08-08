@@ -1,7 +1,8 @@
 #pragma once
 #include <LivoxClient.h>
 #include <string>
-#include <json.hpp>
+#include <nlohmann/json.hpp>
+#include <optional>
 namespace mandeye
 {
 struct LazStats {
