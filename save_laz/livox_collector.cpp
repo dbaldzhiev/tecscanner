@@ -9,22 +9,24 @@
 
 bool LivoxCollector::collect(std::vector<Point>& points, std::vector<ImuData>& imus, double& duration, const std::string& cfg)
 {
-	serials_.clear();
-	if(!LivoxLidarSdkInit(cfg.c_str()))
-	{
-		return false;
-	}
+        serials_.clear();
+        handle_to_id_.clear();
+        if(!LivoxLidarSdkInit(cfg.c_str()))
+        {
+                return false;
+        }
 
 	std::atomic_bool running(true);
 	std::atomic_bool frame_done(false);
 
-	struct CallbackCtx
-	{
-		std::vector<Point>* pts;
-		std::vector<ImuData>* imus;
-		std::atomic_bool* frame_done;
-		std::atomic_bool* running;
-	} ctx{&points, &imus, &frame_done, &running};
+        struct CallbackCtx
+        {
+                std::vector<Point>* pts;
+                std::vector<ImuData>* imus;
+                std::atomic_bool* frame_done;
+                std::atomic_bool* running;
+                std::unordered_map<std::uint32_t, std::uint16_t>* handle_to_id;
+        } ctx{&points, &imus, &frame_done, &running, &handle_to_id_};
 
 	auto point_cb = [](uint32_t, const uint8_t, LivoxLidarEthernetPacket* data, void* user) {
 		if(!data || data->data_type != kLivoxLidarCartesianCoordinateHighData)
@@ -53,42 +55,48 @@ bool LivoxCollector::collect(std::vector<Point>& points, std::vector<ImuData>& i
 		*(c->running) = false;
 	};
 
-	auto imu_cb = [](uint32_t handle, const uint8_t, LivoxLidarEthernetPacket* data, void* user) {
-		if(!data || data->data_type != kLivoxLidarImuData)
-		{
-			return;
-		}
-		auto* c = static_cast<CallbackCtx*>(user);
-		auto* imu_raw = reinterpret_cast<LivoxLidarImuRawPoint*>(data->data);
-		uint64_t ts = 0;
-		std::memcpy(&ts, data->timestamp, sizeof(ts));
-		ImuData imu;
-		imu.timestamp = ts;
-		imu.gyro_x = imu_raw->gyro_x;
-		imu.gyro_y = imu_raw->gyro_y;
-		imu.gyro_z = imu_raw->gyro_z;
-		imu.acc_x = imu_raw->acc_x;
-		imu.acc_y = imu_raw->acc_y;
-		imu.acc_z = imu_raw->acc_z;
-		imu.imu_id = static_cast<std::uint16_t>(handle);
-		imu.timestamp_unix = static_cast<std::uint64_t>(
-			std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
-		c->imus->push_back(imu);
-	};
+        auto imu_cb = [](uint32_t handle, const uint8_t, LivoxLidarEthernetPacket* data, void* user) {
+                if(!data || data->data_type != kLivoxLidarImuData)
+                {
+                        return;
+                }
+                auto* c = static_cast<CallbackCtx*>(user);
+                auto* imu_raw = reinterpret_cast<LivoxLidarImuRawPoint*>(data->data);
+                uint64_t ts = 0;
+                std::memcpy(&ts, data->timestamp, sizeof(ts));
+                ImuData imu;
+                imu.timestamp = ts;
+                imu.gyro_x = imu_raw->gyro_x;
+                imu.gyro_y = imu_raw->gyro_y;
+                imu.gyro_z = imu_raw->gyro_z;
+                imu.acc_x = imu_raw->acc_x;
+                imu.acc_y = imu_raw->acc_y;
+                imu.acc_z = imu_raw->acc_z;
+                auto it = c->handle_to_id->find(handle);
+                imu.imu_id = (it != c->handle_to_id->end()) ? it->second : 0;
+                imu.timestamp_unix = static_cast<std::uint64_t>(
+                        std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
+                c->imus->push_back(imu);
+        };
 
-	auto info_cb = [](const uint32_t handle, const LivoxLidarInfo* info, void* user) {
-		if(info)
-		{
-			auto* vec = static_cast<std::vector<std::pair<std::uint32_t, std::string>>*>(user);
-			vec->emplace_back(handle, info->sn);
-			SetLivoxLidarWorkMode(handle, kLivoxLidarNormal, nullptr, nullptr);
-			EnableLivoxLidarImuData(handle, nullptr, nullptr);
-		}
-	};
+        auto info_cb = [](const uint32_t handle, const LivoxLidarInfo* info, void* user) {
+                if(info)
+                {
+                        auto* collector = static_cast<LivoxCollector*>(user);
+                        if(collector->handle_to_id_.find(handle) == collector->handle_to_id_.end())
+                        {
+                                std::uint16_t id = static_cast<std::uint16_t>(collector->serials_.size());
+                                collector->serials_.emplace_back(id, info->sn);
+                                collector->handle_to_id_[handle] = id;
+                        }
+                        SetLivoxLidarWorkMode(handle, kLivoxLidarNormal, nullptr, nullptr);
+                        EnableLivoxLidarImuData(handle, nullptr, nullptr);
+                }
+        };
 
-	SetLivoxLidarPointCloudCallBack(point_cb, &ctx);
-	SetLivoxLidarImuDataCallback(imu_cb, &ctx);
-	SetLivoxLidarInfoChangeCallback(info_cb, &serials_);
+        SetLivoxLidarPointCloudCallBack(point_cb, &ctx);
+        SetLivoxLidarImuDataCallback(imu_cb, &ctx);
+        SetLivoxLidarInfoChangeCallback(info_cb, this);
 	LivoxLidarSdkStart();
 
 	auto start = std::chrono::steady_clock::now();
