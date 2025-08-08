@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
-# Compile and install the save_laz utility.
+# Compile and install the save_laz utility together with its dependencies.
 set -e
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CODE_DIR="$PROJECT_ROOT/save_laz"
 
-if [ ! -f /usr/local/bin/save_laz ]; then
-  echo "Compiling save_laz utility..."
-  cmake -S "$PROJECT_ROOT/save_laz" -B "$PROJECT_ROOT/save_laz/build"
-  cmake --build "$PROJECT_ROOT/save_laz/build" --config Release
-  sudo install -m 0755 "$PROJECT_ROOT/save_laz/build/save_laz" /usr/local/bin/save_laz
-else
-  echo "save_laz utility already installed."
-fi
+# Ensure third-party libraries are available
+"$PROJECT_ROOT/scripts/build_livox_sdk2.sh"
+"$PROJECT_ROOT/scripts/build_laszip.sh"
+
+echo "Compiling save_laz utility..."
+cmake -S "$CODE_DIR" -B "$CODE_DIR/build"
+cmake --build "$CODE_DIR/build" --config Release
+sudo install -m 0755 "$CODE_DIR/build/save_laz" /usr/local/bin/save_laz
 
