@@ -42,9 +42,6 @@ struct LazStats
     nlohmann::json produceStatus() const;
 };
 
-struct CsvWriter; // forward declaration
-
 LazStats saveLaz(const std::string& laz_file,
                  const std::vector<Point>& points,
-                 double capture_duration,
-                 CsvWriter* csv_writer = nullptr);
+                 double capture_duration);

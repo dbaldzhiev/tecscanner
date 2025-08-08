@@ -1,5 +1,4 @@
 #include "save_laz.h"
-#include "csv_writer.h"
 
 #include <algorithm>
 #include <chrono>
@@ -11,8 +10,7 @@
 
 LazStats saveLaz(const std::string& output,
                  const std::vector<Point>& points,
-                 double capture_duration,
-                 CsvWriter* csv_writer)
+                 double capture_duration)
 {
     LazStats stats{};
     stats.filename = output;
@@ -133,10 +131,6 @@ LazStats saveLaz(const std::string& output,
         coords[2] = p.z;
         laszip_set_coordinates(writer, coords);
         laszip_write_point(writer);
-        if(csv_writer)
-        {
-            writePoint(*csv_writer, p);
-        }
     }
     auto write_end = std::chrono::steady_clock::now();
 
