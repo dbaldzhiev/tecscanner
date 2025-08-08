@@ -42,7 +42,6 @@ def write_lidar_sn(path: Path) -> None:
         raw_lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
         lines: list[str] = []
         for entry in raw_lines:
-            # Try to extract explicit "id"/"sn" fields first
             m = re.search(
                 r"id\s*[:=]\s*(\d+)\b.*?sn\s*[:=]\s*([A-Za-z0-9]+)",
                 entry,
@@ -65,12 +64,12 @@ def write_lidar_sn(path: Path) -> None:
         if not lines:
             for idx, entry in enumerate(raw_lines):
                 tokens = re.findall(r"[A-Za-z0-9]+", entry)
+
                 if tokens:
                     lines.append(f"{idx} {tokens[-1]}")
     except (OSError, subprocess.SubprocessError):
         lines = []
     _write_lines(path, lines)
-
 
 def _run_cmd(cmd: list[str]) -> str | None:
     """Return stdout from ``cmd`` or ``None`` on failure."""
