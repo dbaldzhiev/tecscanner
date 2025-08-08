@@ -98,12 +98,12 @@ LazStats saveLaz(const std::string& output,
     header->x_scale_factor = 0.0001;
     header->y_scale_factor = 0.0001;
     header->z_scale_factor = 0.0001;
-    header->min_x = min_x * 0.001;
-    header->max_x = max_x * 0.001;
-    header->min_y = min_y * 0.001;
-    header->max_y = max_y * 0.001;
-    header->min_z = min_z * 0.001;
-    header->max_z = max_z * 0.001;
+    header->min_x = min_x;
+    header->max_x = max_x;
+    header->min_y = min_y;
+    header->max_y = max_y;
+    header->min_z = min_z;
+    header->max_z = max_z;
     header->number_of_point_records =
         static_cast<laszip_U32>((points.size() + step - 1) / step);
     std::fill_n(header->number_of_points_by_return, 5, 0);
@@ -124,13 +124,13 @@ LazStats saveLaz(const std::string& output,
     {
         const auto& p = points[i];
         laz_point->intensity = p.intensity;
-        laz_point->gps_time = p.gps_time * 1e-3; // convert ms -> s
+        laz_point->gps_time = p.gps_time * 1e-9; // convert ns -> s
         laz_point->user_data = static_cast<laszip_U8>(p.laser_id);
         laz_point->classification = p.tag;
-        laz_point->point_source_ID = p.line_id;
-        coords[0] = p.x * 0.001;
-        coords[1] = p.y * 0.001;
-        coords[2] = p.z * 0.001;
+        laz_point->point_source_ID = 0;
+        coords[0] = p.x;
+        coords[1] = p.y;
+        coords[2] = p.z;
         laszip_set_coordinates(writer, coords);
         laszip_write_point(writer);
         if(csv_writer)
